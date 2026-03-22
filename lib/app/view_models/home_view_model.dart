@@ -29,6 +29,7 @@ class HomeViewModel extends ChangeNotifier {
           message: fallbackMessage,
           isLoading: false,
           icon: _fallbackIconForHour(hour),
+          shouldSuggestOuterwear: hour >= 18 || hour < 7,
         );
         notifyListeners();
         return;
@@ -46,6 +47,7 @@ class HomeViewModel extends ChangeNotifier {
           message: fallbackMessage,
           isLoading: false,
           icon: _fallbackIconForHour(hour),
+          shouldSuggestOuterwear: hour >= 18 || hour < 7,
         );
         notifyListeners();
         return;
@@ -70,6 +72,11 @@ class HomeViewModel extends ChangeNotifier {
           isDay: snapshot.isDay,
           hour: hour,
         ),
+        shouldSuggestOuterwear: _shouldSuggestOuterwear(
+          weatherCode: snapshot.weatherCode,
+          isDay: snapshot.isDay,
+          hour: hour,
+        ),
       );
     } catch (_) {
       _state = HomeWeatherState(
@@ -77,6 +84,7 @@ class HomeViewModel extends ChangeNotifier {
         message: fallbackMessage,
         isLoading: false,
         icon: _fallbackIconForHour(hour),
+        shouldSuggestOuterwear: hour >= 18 || hour < 7,
       );
     }
 
@@ -145,6 +153,23 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     return _fallbackIconForHour(hour);
+  }
+
+  bool _shouldSuggestOuterwear({
+    required int weatherCode,
+    required bool isDay,
+    required int hour,
+  }) {
+    if (_isRainy(weatherCode) ||
+        _isSnowy(weatherCode) ||
+        _isStormy(weatherCode) ||
+        _isFoggy(weatherCode)) {
+      return true;
+    }
+    if (_isCloudy(weatherCode) && !isDay) {
+      return true;
+    }
+    return hour >= 18 || hour < 7;
   }
 
   bool _isClear(int code) => code == 0 || code == 1;

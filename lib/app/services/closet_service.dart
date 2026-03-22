@@ -1,0 +1,359 @@
+import 'dart:io';
+import 'dart:math';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/closet_analysis_result.dart';
+import '../models/closet_item_preview.dart';
+
+class ClosetService {
+  ClosetService({SupabaseClient? supabaseClient})
+      : _supabase = supabaseClient ?? Supabase.instance.client;
+
+  static const storageBucket = 'closet-items';
+
+  final SupabaseClient _supabase;
+
+  Future<int> fetchItemCount() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return 0;
+
+    final response = await _supabase
+        .from('clothing_items')
+        .select('id')
+        .eq('user_id', user.id);
+
+    return response.length;
+  }
+
+  Future<List<ClosetItemPreview>> fetchClosetItems() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return const [];
+
+    final itemsResponse = await _supabase
+        .from('clothing_items')
+        .select('id, image_url, source, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false);
+
+    final itemIds = itemsResponse
+        .map((item) => item['id'] as String?)
+        .whereType<String>()
+        .toList();
+
+    final analysisByItemId = <String, Map<String, dynamic>>{};
+    if (itemIds.isNotEmpty) {
+      try {
+        final analysesResponse = await _supabase
+            .from('clothing_ai_analyses')
+            .select('clothing_item_id, raw_response, created_at')
+            .inFilter('clothing_item_id', itemIds)
+            .order('created_at', ascending: false);
+
+        for (final analysis in analysesResponse) {
+          final clothingItemId = analysis['clothing_item_id'] as String?;
+          final rawResponse = analysis['raw_response'] as Map<String, dynamic>?;
+          if (clothingItemId == null || rawResponse == null) continue;
+          analysisByItemId.putIfAbsent(clothingItemId, () => rawResponse);
+        }
+      } on PostgrestException {
+        // Keep closet previews working even if AI analysis tables are not set up yet.
+      }
+    }
+
+    final previews = <ClosetItemPreview>[];
+
+    for (final item in itemsResponse) {
+      final id = item['id'] as String?;
+      final rawUrl = item['image_url'] as String? ?? '';
+      if (id == null || rawUrl.isEmpty) continue;
+
+      final analysis = analysisByItemId[id];
+      final resolvedUrl = await _resolvePreviewUrl(rawUrl);
+      previews.add(
+        ClosetItemPreview(
+          id: id,
+          imageUrl: resolvedUrl,
+          source: item['source'] as String? ?? 'camera_upload',
+          category: (analysis?['category'] as String?)?.trim().isNotEmpty == true
+              ? (analysis!['category'] as String).trim()
+              : _categoryForSource(item['source'] as String? ?? 'camera_upload'),
+          primaryColor:
+              (analysis?['primary_color'] as String?)?.trim().isNotEmpty == true
+                  ? (analysis!['primary_color'] as String).trim()
+                  : 'Neutral',
+          title: (analysis?['garment_type'] as String?)?.trim().isNotEmpty == true
+              ? (analysis!['garment_type'] as String).trim()
+              : 'Closet Piece',
+          subtitle: (analysis?['primary_color'] as String?)?.trim().isNotEmpty ==
+                  true
+              ? (analysis!['primary_color'] as String).trim().toUpperCase()
+              : _labelForSource(item['source'] as String? ?? 'camera_upload'),
+        ),
+      );
+    }
+
+    return previews;
+  }
+
+  List<ClosetItemPreview> buildOutfitSuggestion({
+    required List<ClosetItemPreview> items,
+    required bool includeOuterwear,
+    int? seed,
+  }) {
+    if (items.isEmpty) return const [];
+
+    final random = seed != null ? Random(seed) : Random();
+
+    final tops = _itemsForCategory(items, const ['top', 'tops']);
+    final bottoms = _itemsForCategory(items, const ['bottom', 'bottoms']);
+    final shoes = _itemsForCategory(items, const ['shoe', 'shoes']);
+    final outerwear = _itemsForCategory(items, const ['outerwear']);
+
+    if (tops.isEmpty || bottoms.isEmpty || shoes.isEmpty) {
+      return const [];
+    }
+
+    List<ClosetItemPreview> best = const [];
+    var bestScore = -1.0;
+
+    for (final top in tops) {
+      for (final bottom in bottoms) {
+        for (final shoe in shoes) {
+          final baseItems = [top, bottom, shoe];
+          final baseScore =
+              _scorePair(top, bottom) + _scorePair(top, shoe) + _scorePair(bottom, shoe);
+
+          if (!includeOuterwear || outerwear.isEmpty) {
+            final tieBreaker = random.nextDouble() / 100;
+            final score = baseScore + tieBreaker;
+            if (score > bestScore) {
+              bestScore = score;
+              best = baseItems;
+            }
+            continue;
+          }
+
+          for (final layer in outerwear) {
+            final score = baseScore +
+                _scorePair(top, layer) +
+                _scorePair(bottom, layer) +
+                _scorePair(shoe, layer) +
+                (random.nextDouble() / 100);
+            if (score > bestScore) {
+              bestScore = score;
+              best = [top, bottom, shoe, layer];
+            }
+          }
+        }
+      }
+    }
+
+    return best;
+  }
+
+  List<ClosetItemPreview> _itemsForCategory(
+    List<ClosetItemPreview> items,
+    List<String> accepted,
+  ) {
+    return items.where((item) {
+      final category = item.category.trim().toLowerCase();
+      return accepted.contains(category);
+    }).toList();
+  }
+
+  double _scorePair(ClosetItemPreview first, ClosetItemPreview second) {
+    final a = first.primaryColor.trim().toLowerCase();
+    final b = second.primaryColor.trim().toLowerCase();
+    final neutralColors = {
+      'black',
+      'white',
+      'gray',
+      'grey',
+      'charcoal',
+      'beige',
+      'ivory',
+      'tan',
+      'cream',
+      'neutral',
+      'silver',
+      'brown',
+      'navy',
+    };
+
+    if (a == b) return 5;
+    if (neutralColors.contains(a) && neutralColors.contains(b)) return 4;
+    if (neutralColors.contains(a) || neutralColors.contains(b)) return 3;
+
+    final commonGoodPairs = {
+      'blue:tan',
+      'tan:blue',
+      'blue:white',
+      'white:blue',
+      'green:brown',
+      'brown:green',
+      'red:black',
+      'black:red',
+      'pink:white',
+      'white:pink',
+    };
+
+    return commonGoodPairs.contains('$a:$b') ? 2 : 1;
+  }
+
+  Future<void> addClosetItem({
+    required String imagePath,
+    required String source,
+    ClosetAnalysisResult? analysis,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw const AuthException('Please log in again before adding to your closet.');
+    }
+
+    final extension = _extensionForPath(imagePath);
+    final fileName =
+        '${DateTime.now().millisecondsSinceEpoch}_${user.id.substring(0, 8)}.$extension';
+    final storagePath = '${user.id}/$fileName';
+
+    await _supabase.storage.from(storageBucket).upload(
+          storagePath,
+          File(imagePath),
+          fileOptions: const FileOptions(upsert: false),
+        );
+
+    final publicUrl =
+        _supabase.storage.from(storageBucket).getPublicUrl(storagePath);
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    final inserted = await _supabase
+        .from('clothing_items')
+        .insert({
+          'user_id': user.id,
+          'image_url': publicUrl,
+          'status': 'draft',
+          'source': source,
+          'ai_processed': analysis != null,
+          'is_confirmed': false,
+          'created_at': now,
+          'updated_at': now,
+        })
+        .select('id')
+        .single();
+
+    await _supabase.from('clothing_item_images').insert({
+      'clothing_item_id': inserted['id'],
+      'image_url': publicUrl,
+      'image_type': 'original',
+      'sort_order': 0,
+      'created_at': now,
+    });
+
+    if (analysis != null) {
+      try {
+        final savedAnalysis = await _supabase
+            .from('clothing_ai_analyses')
+            .insert({
+              'clothing_item_id': inserted['id'],
+              'provider': analysis.provider,
+              'model': analysis.model,
+              'raw_response': analysis.toJson(),
+              'confidence_score': analysis.confidence,
+              'created_at': now,
+            })
+            .select('id')
+            .single();
+
+        final predictions = <Map<String, dynamic>>[
+          {
+            'analysis_id': savedAnalysis['id'],
+            'field_name': 'category',
+            'predicted_slug': analysis.category.toLowerCase().replaceAll(' ', '-'),
+            'predicted_label': analysis.category,
+            'confidence_score': analysis.confidence,
+          },
+          {
+            'analysis_id': savedAnalysis['id'],
+            'field_name': 'type',
+            'predicted_slug':
+                analysis.garmentType.toLowerCase().replaceAll(' ', '-'),
+            'predicted_label': analysis.garmentType,
+            'confidence_score': analysis.confidence,
+          },
+          {
+            'analysis_id': savedAnalysis['id'],
+            'field_name': 'primary_color',
+            'predicted_slug':
+                analysis.primaryColor.toLowerCase().replaceAll(' ', '-'),
+            'predicted_label': analysis.primaryColor,
+            'confidence_score': analysis.confidence,
+          },
+          {
+            'analysis_id': savedAnalysis['id'],
+            'field_name': 'material',
+            'predicted_slug': analysis.material.toLowerCase().replaceAll(' ', '-'),
+            'predicted_label': analysis.material,
+            'confidence_score': analysis.confidence,
+          },
+        ];
+
+        await _supabase.from('clothing_ai_predictions').insert(predictions);
+      } on PostgrestException {
+        // Keep the closet save successful even if optional AI tables are missing.
+      }
+    }
+  }
+
+  String _extensionForPath(String path) {
+    final sanitized = path.split('?').first;
+    final dotIndex = sanitized.lastIndexOf('.');
+    if (dotIndex == -1 || dotIndex == sanitized.length - 1) {
+      return 'jpg';
+    }
+
+    return sanitized.substring(dotIndex + 1).toLowerCase();
+  }
+
+  Future<String> _resolvePreviewUrl(String rawUrl) async {
+    final storagePath = _storagePathFromUrl(rawUrl);
+    if (storagePath == null) return rawUrl;
+
+    try {
+      return await _supabase.storage
+          .from(storageBucket)
+          .createSignedUrl(storagePath, 60 * 60);
+    } on StorageException {
+      return rawUrl;
+    }
+  }
+
+  String? _storagePathFromUrl(String url) {
+    final marker = '/$storageBucket/';
+    final index = url.indexOf(marker);
+    if (index == -1) return null;
+
+    final path = url.substring(index + marker.length);
+    return path.isEmpty ? null : path.split('?').first;
+  }
+
+  String _labelForSource(String source) {
+    switch (source) {
+      case 'gallery_upload':
+        return 'UPLOADED';
+      case 'camera_upload':
+        return 'CAPTURED';
+      default:
+        return 'CLOSET ITEM';
+    }
+  }
+
+  String _categoryForSource(String source) {
+    switch (source) {
+      case 'camera_upload':
+      case 'gallery_upload':
+        return 'Tops';
+      default:
+        return 'All Items';
+    }
+  }
+}

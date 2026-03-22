@@ -6,12 +6,14 @@ class HomeWeatherState {
     required this.message,
     required this.isLoading,
     required this.icon,
+    required this.shouldSuggestOuterwear,
   });
 
   final String greeting;
   final String message;
   final bool isLoading;
   final IconData icon;
+  final bool shouldSuggestOuterwear;
 
   factory HomeWeatherState.loading() {
     return const HomeWeatherState(
@@ -19,6 +21,7 @@ class HomeWeatherState {
       message: 'Checking your local weather...',
       isLoading: true,
       icon: Icons.sync_rounded,
+      shouldSuggestOuterwear: false,
     );
   }
 }

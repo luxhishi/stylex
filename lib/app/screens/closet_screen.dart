@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/closet_item_preview.dart';
+import '../services/closet_analysis_service.dart';
+import '../services/closet_service.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
 import 'add_closet_item_screen.dart';
@@ -15,75 +18,169 @@ class ClosetScreen extends StatefulWidget {
 
 class _ClosetScreenState extends State<ClosetScreen> {
   final ImagePicker _picker = ImagePicker();
+  final ClosetAnalysisService _analysisService = ClosetAnalysisService();
+  final ClosetService _closetService = ClosetService();
   var _isLaunchingCamera = false;
   var _selectedFilter = 'All Items';
+  var _isLoadingCloset = true;
+  List<ClosetItemPreview> _items = const [];
 
   static const _filters = [
     'All Items',
+    'Outerwear',
     'Tops',
     'Bottoms',
     'Shoes',
   ];
 
-  static const _items = [
-    _ClosetItem(
-      title: 'Oversized Blazer',
-      subtitle: 'BEIGE    PROFESSIONAL',
-      palette: [Color(0xFFF6F2EA), Color(0xFFD6C6B1)],
-      tall: true,
-    ),
-    _ClosetItem(
-      title: 'Straight Denim',
-      subtitle: 'BLUE',
-      palette: [Color(0xFF4E6F95), Color(0xFF9BB8D8)],
-    ),
-    _ClosetItem(
-      title: 'Studio Sneakers',
-      subtitle: 'WHITE',
-      palette: [Color(0xFFF8F8F4), Color(0xFFDBDED5)],
-    ),
-    _ClosetItem(
-      title: 'Essential Tee',
-      subtitle: 'BLACK',
-      palette: [Color(0xFF0F171A), Color(0xFF373E42)],
-    ),
-    _ClosetItem(
-      title: 'Heirloom Watch',
-      subtitle: 'GOLD',
-      palette: [Color(0xFF30251B), Color(0xFFD9BA60)],
-    ),
-    _ClosetItem(
-      title: 'Merino Sweater',
-      subtitle: 'BLACK',
-      palette: [Color(0xFF1A1A1D), Color(0xFF44464D)],
-    ),
-    _ClosetItem(
-      title: 'Floral Midi',
-      subtitle: 'PINK',
-      palette: [Color(0xFFD4B5BD), Color(0xFFF0E1E4)],
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadClosetCount();
+  }
 
-  Future<void> _openCamera() async {
+  Future<void> _loadClosetCount() async {
+    try {
+      final items = await _closetService.fetchClosetItems();
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _isLoadingCloset = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _items = const [];
+        _isLoadingCloset = false;
+      });
+    }
+  }
+
+  Future<void> _showAddOptions() async {
     if (_isLaunchingCamera) return;
 
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Add To Closet',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF203032),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Choose how you want to add your clothing item.',
+                      style: TextStyle(
+                        color: Color(0xFF6A7C7E),
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _SourceOptionTile(
+                      icon: Icons.photo_camera_outlined,
+                      title: 'Use Camera',
+                      subtitle: 'Capture a piece right now',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _pickImage(
+                          source: ImageSource.camera,
+                          label: 'CAPTURE',
+                          sourceValue: 'camera_upload',
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _SourceOptionTile(
+                      icon: Icons.photo_library_outlined,
+                      title: 'Upload Photo',
+                      subtitle: 'Choose an existing image',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _pickImage(
+                          source: ImageSource.gallery,
+                          label: 'UPLOAD',
+                          sourceValue: 'gallery_upload',
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage({
+    required ImageSource source,
+    required String label,
+    required String sourceValue,
+  }) async {
+    if (_isLaunchingCamera) return;
+
+    var analysisDialogShown = false;
     setState(() => _isLaunchingCamera = true);
 
     try {
       final captured = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 90,
       );
 
       if (!mounted || captured == null) return;
 
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => AddClosetItemScreen(imagePath: captured.path),
+      _showAnalysisDialog();
+      analysisDialogShown = true;
+      final analysis = await _analysisService.analyzeImage(
+        imagePath: captured.path,
+        source: sourceValue,
+      );
+      if (!mounted) return;
+      if (analysisDialogShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+        analysisDialogShown = false;
+      }
+
+      final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => AddClosetItemScreen(
+            imagePath: captured.path,
+            sourceLabel: label,
+            sourceValue: sourceValue,
+            analysis: analysis,
+          ),
         ),
       );
+
+      if (saved == true) {
+        await _loadClosetCount();
+      }
     } catch (_) {
       if (!mounted) return;
+      if (analysisDialogShown) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Camera could not be opened on this device right now.'),
@@ -94,6 +191,55 @@ class _ClosetScreenState extends State<ClosetScreen> {
         setState(() => _isLaunchingCamera = false);
       }
     }
+  }
+
+  void _showAnalysisDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return const PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: EdgeInsets.all(22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF0A7A76),
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Analyzing your item...',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF203032),
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'We are generating AI tags like type, color, and material before the preview opens.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF6A7C7E),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _handleTabSelection(AppTab tab) {
@@ -116,6 +262,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final filteredItems = _filteredItemsForSelection();
+    final hasClosetItems = filteredItems.isNotEmpty;
 
     return Scaffold(
       body: AppViewport(
@@ -227,99 +375,111 @@ class _ClosetScreenState extends State<ClosetScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    _FeaturedClosetCard(item: _items.first),
-                    const SizedBox(height: 14),
-                    GridView.builder(
-                      itemCount: _items.length - 1,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.76,
+                    if (_isLoadingCloset)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF0A7A76),
+                          ),
+                        ),
+                      )
+                    else if (hasClosetItems) ...[
+                      _FeaturedClosetCard(item: filteredItems.first),
+                      const SizedBox(height: 14),
+                      GridView.builder(
+                        itemCount: filteredItems.length - 1,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.76,
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = filteredItems[index + 1];
+                          return _ClosetGridCard(item: item);
+                        },
                       ),
-                      itemBuilder: (context, index) {
-                        final item = _items[index + 1];
-                        return _ClosetGridCard(item: item);
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFCAEDFF),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF0A7A76),
-                                  borderRadius:
-                                      BorderRadius.all(Radius.circular(8)),
-                                ),
-                                child: const Icon(
-                                  Icons.auto_awesome_rounded,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'STYLE AI SUGGESTION',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: const Color(0xFF1D5F69),
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.1,
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCAEDFF),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF0A7A76),
+                                    borderRadius:
+                                        BorderRadius.all(Radius.circular(8)),
+                                  ),
+                                  child: const Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 14,
+                                    color: Colors.white,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Build a Minimalist Capsule',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: const Color(0xFF203032),
-                              fontWeight: FontWeight.w800,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'STYLE AI SUGGESTION',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: const Color(0xFF1D5F69),
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            "You have 12 items that match the 'Quiet Luxury' aesthetic. Want us to generate 5 outfits for your upcoming trip?",
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF3F6A73),
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: () {},
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF203032),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(999),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Build a Minimalist Capsule',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: const Color(0xFF203032),
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                            child: const Text('Generate Lookbook'),
-                          ),
-                        ],
+                            const SizedBox(height: 6),
+                            Text(
+                              "You have 12 items that match the 'Quiet Luxury' aesthetic. Want us to generate 5 outfits for your upcoming trip?",
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: const Color(0xFF3F6A73),
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: () {},
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF203032),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              child: const Text('Generate Lookbook'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ] else
+                      _EmptyClosetState(onAddPressed: _showAddOptions),
                   ],
                 ),
               ),
@@ -330,7 +490,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                 child: StylexBottomNav(
                   selectedTab: AppTab.closet,
                   showAddButton: true,
-                  onAddPressed: _isLaunchingCamera ? null : _openCamera,
+                  onAddPressed: _isLaunchingCamera ? null : _showAddOptions,
                   onTabSelected: _handleTabSelection,
                 ),
               ),
@@ -340,26 +500,178 @@ class _ClosetScreenState extends State<ClosetScreen> {
       ),
     );
   }
+
+  List<ClosetItemPreview> _filteredItemsForSelection() {
+    if (_selectedFilter == 'All Items') {
+      return _items;
+    }
+
+    return _items.where((item) {
+      final normalizedCategory = item.category.trim().toLowerCase();
+      final normalizedFilter = _selectedFilter.trim().toLowerCase();
+
+      if (normalizedFilter == 'tops') {
+        return normalizedCategory == 'top' || normalizedCategory == 'tops';
+      }
+      if (normalizedFilter == 'bottoms') {
+        return normalizedCategory == 'bottom' || normalizedCategory == 'bottoms';
+      }
+      if (normalizedFilter == 'shoes') {
+        return normalizedCategory == 'shoe' || normalizedCategory == 'shoes';
+      }
+      if (normalizedFilter == 'outerwear') {
+        return normalizedCategory == 'outerwear';
+      }
+
+      return normalizedCategory == normalizedFilter;
+    }).toList();
+  }
 }
 
-class _ClosetItem {
-  const _ClosetItem({
+class _EmptyClosetState extends StatelessWidget {
+  const _EmptyClosetState({required this.onAddPressed});
+
+  final VoidCallback onAddPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F8F7),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE1EEEB)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: const BoxDecoration(
+              color: Color(0xFFDFF4EF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.checkroom_outlined,
+              size: 34,
+              color: Color(0xFF0A7A76),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Nothing to see here... add your first item.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF203032),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Once you capture a piece, your closet and style suggestions will start showing up here.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF6A7C7E),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onAddPressed,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0A7A76),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+            label: const Text('Add Your First Item'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SourceOptionTile extends StatelessWidget {
+  const _SourceOptionTile({
+    required this.icon,
     required this.title,
     required this.subtitle,
-    required this.palette,
-    this.tall = false,
+    required this.onTap,
   });
 
+  final IconData icon;
   final String title;
   final String subtitle;
-  final List<Color> palette;
-  final bool tall;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF2F8F7),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE1EEEB)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFFDFF4EF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: const Color(0xFF0A7A76)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF203032),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF6A7C7E),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Color(0xFF87A1A3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _FeaturedClosetCard extends StatelessWidget {
   const _FeaturedClosetCard({required this.item});
 
-  final _ClosetItem item;
+  final ClosetItemPreview item;
 
   @override
   Widget build(BuildContext context) {
@@ -375,10 +687,14 @@ class _FeaturedClosetCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _ClosetImage(
-            palette: item.palette,
-            borderRadius: 16,
-            tall: true,
+          SizedBox(
+            height: 332,
+            width: double.infinity,
+            child: _ClosetImage(
+              imageUrl: item.imageUrl,
+              borderRadius: 16,
+              tall: true,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -417,7 +733,7 @@ class _FeaturedClosetCard extends StatelessWidget {
 class _ClosetGridCard extends StatelessWidget {
   const _ClosetGridCard({required this.item});
 
-  final _ClosetItem item;
+  final ClosetItemPreview item;
 
   @override
   Widget build(BuildContext context) {
@@ -434,9 +750,9 @@ class _ClosetGridCard extends StatelessWidget {
         children: [
           Expanded(
             child: _ClosetImage(
-              palette: item.palette,
+              imageUrl: item.imageUrl,
               borderRadius: 14,
-              tall: item.title == 'Straight Denim',
+              tall: false,
             ),
           ),
           const SizedBox(height: 10),
@@ -466,12 +782,12 @@ class _ClosetGridCard extends StatelessWidget {
 
 class _ClosetImage extends StatelessWidget {
   const _ClosetImage({
-    required this.palette,
+    required this.imageUrl,
     required this.borderRadius,
     this.tall = false,
   });
 
-  final List<Color> palette;
+  final String imageUrl;
   final double borderRadius;
   final bool tall;
 
@@ -479,38 +795,57 @@ class _ClosetImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: palette,
-          ),
-        ),
+      child: SizedBox.expand(
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Positioned(
-              left: tall ? 30 : 16,
-              right: tall ? 30 : 16,
-              top: 12,
-              bottom: 14,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFE9F3F1), Color(0xFFCFE2DE)],
+                    ),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: Color(0xFF6A7C7E),
+                    ),
+                  ),
+                );
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFE9F3F1), Color(0xFFCFE2DE)],
+                    ),
+                  ),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF0A7A76),
+                    ),
+                  ),
+                );
+              },
             ),
-            Positioned(
-              left: tall ? 62 : 28,
-              right: tall ? 62 : 28,
-              top: tall ? 26 : 20,
-              bottom: tall ? 22 : 20,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.32),
-                  borderRadius: BorderRadius.circular(18),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: tall ? 0.08 : 0.18),
+                  ],
                 ),
               ),
             ),
