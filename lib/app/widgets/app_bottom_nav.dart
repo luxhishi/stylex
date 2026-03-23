@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum AppTab { home, closet, stylist, outfits }
+enum AppTab { home, closet, outfits }
 
 class StylexBottomNav extends StatelessWidget {
   const StylexBottomNav({
@@ -21,7 +21,6 @@ class StylexBottomNav extends StatelessWidget {
     final items = const [
       _NavItemData(Icons.home_rounded, 'HOME', AppTab.home),
       _NavItemData(Icons.checkroom_outlined, 'CLOSET', AppTab.closet),
-      _NavItemData(Icons.auto_awesome_rounded, 'STYLIST', AppTab.stylist),
       _NavItemData(Icons.shopping_bag_outlined, 'OUTFITS', AppTab.outfits),
     ];
 

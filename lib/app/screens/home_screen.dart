@@ -7,6 +7,8 @@ import '../view_models/home_view_model.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
 import 'closet_screen.dart';
+import 'outfits_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +18,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static List<ClosetItemPreview>? _cachedClosetItems;
+  static List<ClosetItemPreview>? _cachedOutfitSuggestion;
+  static int _cachedSuggestionSeed = 0;
+
   late final HomeViewModel _viewModel;
   final ClosetService _closetService = ClosetService();
   List<ClosetItemPreview> _closetItems = const [];
@@ -26,6 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _viewModel = HomeViewModel();
+    _closetItems = _cachedClosetItems ?? const [];
+    _outfitSuggestion = _cachedOutfitSuggestion ?? const [];
+    _suggestionSeed = _cachedSuggestionSeed;
     _initializeHome();
   }
 
@@ -36,23 +45,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeHome() async {
-    await _viewModel.load();
-    await _loadClosetCount();
+    final hasCache = _cachedClosetItems != null && _cachedOutfitSuggestion != null;
+    await _viewModel.load(forceRefresh: false);
+    if (!hasCache) {
+      await _loadClosetCount();
+    }
   }
 
-  Future<void> _loadClosetCount() async {
+  Future<void> _loadClosetCount({bool preserveSuggestion = false}) async {
     try {
       final items = await _closetService.fetchClosetItems();
       if (!mounted) return;
       setState(() {
         _closetItems = items;
-        _refreshSuggestion();
+        if (!preserveSuggestion) {
+          _refreshSuggestion();
+        }
+        _cachedClosetItems = _closetItems;
+        _cachedOutfitSuggestion = _outfitSuggestion;
+        _cachedSuggestionSeed = _suggestionSeed;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _closetItems = const [];
         _outfitSuggestion = const [];
+        _cachedClosetItems = _closetItems;
+        _cachedOutfitSuggestion = _outfitSuggestion;
+        _cachedSuggestionSeed = 0;
       });
     }
   }
@@ -63,6 +83,8 @@ class _HomeScreenState extends State<HomeScreen> {
       includeOuterwear: _viewModel.state.shouldSuggestOuterwear,
       seed: _suggestionSeed,
     );
+    _cachedOutfitSuggestion = _outfitSuggestion;
+    _cachedSuggestionSeed = _suggestionSeed;
   }
 
   @override
@@ -104,12 +126,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 8),
                         Row(
-                            children: [
-                              Icon(
-                                weather.icon,
-                                size: 18,
-                                color: const Color(0xFF0A7A76),
+                          children: [
+                            Icon(
+                              weather.icon,
+                              size: 18,
+                              color: const Color(0xFF0A7A76),
+                            ),
+                            if (weather.temperatureLabel != null) ...[
+                              const SizedBox(width: 6),
+                              Text(
+                                weather.temperatureLabel!,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: const Color(0xFF0A7A76),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
+                            ],
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
@@ -165,12 +197,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: FilledButton.icon(
                               onPressed: () async {
-                                await _viewModel.load();
+                                await _viewModel.load(forceRefresh: true);
                                 if (!mounted) return;
                                 if (hasClosetItems) {
                                   setState(() {
                                     _suggestionSeed++;
                                     _refreshSuggestion();
+                                    _cachedClosetItems = _closetItems;
                                   });
                                 }
                               },
@@ -253,6 +286,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           return;
                         }
 
+                        if (tab == AppTab.outfits) {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const OutfitsScreen(),
+                            ),
+                          );
+                          return;
+                        }
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('${tab.name} is coming soon.')),
                         );
@@ -294,7 +336,13 @@ class _Header extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsScreen(),
+              ),
+            );
+          },
           style: IconButton.styleFrom(
             backgroundColor: const Color(0xFFE8F5F2),
             foregroundColor: const Color(0xFF0A7A76),
@@ -308,15 +356,6 @@ class _Header extends StatelessWidget {
             fontWeight: FontWeight.w700,
             color: const Color(0xFF0A6E6A),
           ),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: () {},
-          style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFFE8F5F2),
-            foregroundColor: const Color(0xFF0A7A76),
-          ),
-          icon: const Icon(Icons.settings_rounded),
         ),
       ],
     );

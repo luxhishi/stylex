@@ -7,14 +7,21 @@ import '../services/weather_service.dart';
 class HomeViewModel extends ChangeNotifier {
   HomeViewModel({WeatherService? weatherService})
       : _weatherService = weatherService ?? WeatherService(),
-        _state = HomeWeatherState.loading();
+        _state = _cachedState ?? HomeWeatherState.loading();
 
   final WeatherService _weatherService;
+  static HomeWeatherState? _cachedState;
 
   HomeWeatherState _state;
   HomeWeatherState get state => _state;
 
-  Future<void> load() async {
+  Future<void> load({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedState != null) {
+      _state = _cachedState!;
+      notifyListeners();
+      return;
+    }
+
     _state = HomeWeatherState.loading();
     notifyListeners();
 
@@ -29,8 +36,10 @@ class HomeViewModel extends ChangeNotifier {
           message: fallbackMessage,
           isLoading: false,
           icon: _fallbackIconForHour(hour),
+          temperatureLabel: null,
           shouldSuggestOuterwear: hour >= 18 || hour < 7,
         );
+        _cachedState = _state;
         notifyListeners();
         return;
       }
@@ -47,8 +56,10 @@ class HomeViewModel extends ChangeNotifier {
           message: fallbackMessage,
           isLoading: false,
           icon: _fallbackIconForHour(hour),
+          temperatureLabel: null,
           shouldSuggestOuterwear: hour >= 18 || hour < 7,
         );
+        _cachedState = _state;
         notifyListeners();
         return;
       }
@@ -72,20 +83,24 @@ class HomeViewModel extends ChangeNotifier {
           isDay: snapshot.isDay,
           hour: hour,
         ),
+        temperatureLabel: '${snapshot.temperatureCelsius.round()}\u00B0C',
         shouldSuggestOuterwear: _shouldSuggestOuterwear(
           weatherCode: snapshot.weatherCode,
           isDay: snapshot.isDay,
           hour: hour,
         ),
       );
+      _cachedState = _state;
     } catch (_) {
       _state = HomeWeatherState(
         greeting: fallbackGreeting,
         message: fallbackMessage,
         isLoading: false,
         icon: _fallbackIconForHour(hour),
+        temperatureLabel: null,
         shouldSuggestOuterwear: hour >= 18 || hour < 7,
       );
+      _cachedState = _state;
     }
 
     notifyListeners();

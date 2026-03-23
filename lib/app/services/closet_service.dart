@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -103,8 +102,6 @@ class ClosetService {
   }) {
     if (items.isEmpty) return const [];
 
-    final random = seed != null ? Random(seed) : Random();
-
     final tops = _itemsForCategory(items, const ['top', 'tops']);
     final bottoms = _itemsForCategory(items, const ['bottom', 'bottoms']);
     final shoes = _itemsForCategory(items, const ['shoe', 'shoes']);
@@ -114,8 +111,7 @@ class ClosetService {
       return const [];
     }
 
-    List<ClosetItemPreview> best = const [];
-    var bestScore = -1.0;
+    final candidates = <_OutfitCandidate>[];
 
     for (final top in tops) {
       for (final bottom in bottoms) {
@@ -125,12 +121,12 @@ class ClosetService {
               _scorePair(top, bottom) + _scorePair(top, shoe) + _scorePair(bottom, shoe);
 
           if (!includeOuterwear || outerwear.isEmpty) {
-            final tieBreaker = random.nextDouble() / 100;
-            final score = baseScore + tieBreaker;
-            if (score > bestScore) {
-              bestScore = score;
-              best = baseItems;
-            }
+            candidates.add(
+              _OutfitCandidate(
+                items: baseItems,
+                score: baseScore,
+              ),
+            );
             continue;
           }
 
@@ -138,18 +134,28 @@ class ClosetService {
             final score = baseScore +
                 _scorePair(top, layer) +
                 _scorePair(bottom, layer) +
-                _scorePair(shoe, layer) +
-                (random.nextDouble() / 100);
-            if (score > bestScore) {
-              bestScore = score;
-              best = [top, bottom, shoe, layer];
-            }
+                _scorePair(shoe, layer);
+            candidates.add(
+              _OutfitCandidate(
+                items: [top, bottom, shoe, layer],
+                score: score,
+              ),
+            );
           }
         }
       }
     }
 
-    return best;
+    if (candidates.isEmpty) return const [];
+
+    candidates.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+      return a.signature.compareTo(b.signature);
+    });
+
+    final index = (seed ?? 0) % candidates.length;
+    return candidates[index].items;
   }
 
   List<ClosetItemPreview> _itemsForCategory(
@@ -356,4 +362,16 @@ class ClosetService {
         return 'All Items';
     }
   }
+}
+
+class _OutfitCandidate {
+  const _OutfitCandidate({
+    required this.items,
+    required this.score,
+  });
+
+  final List<ClosetItemPreview> items;
+  final double score;
+
+  String get signature => items.map((item) => item.id).join('|');
 }

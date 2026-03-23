@@ -8,6 +8,8 @@ import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
 import 'add_closet_item_screen.dart';
 import 'home_screen.dart';
+import 'outfits_screen.dart';
+import 'settings_screen.dart';
 
 class ClosetScreen extends StatefulWidget {
   const ClosetScreen({super.key});
@@ -254,6 +256,15 @@ class _ClosetScreenState extends State<ClosetScreen> {
       return;
     }
 
+    if (tab == AppTab.outfits) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => const OutfitsScreen(),
+        ),
+      );
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${tab.name} is coming soon.')),
     );
@@ -281,7 +292,13 @@ class _ClosetScreenState extends State<ClosetScreen> {
                     Row(
                       children: [
                         IconButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const SettingsScreen(),
+                              ),
+                            );
+                          },
                           style: IconButton.styleFrom(
                             backgroundColor: const Color(0xFFE8F5F2),
                             foregroundColor: const Color(0xFF0A7A76),

@@ -6,6 +6,7 @@ class HomeWeatherState {
     required this.message,
     required this.isLoading,
     required this.icon,
+    required this.temperatureLabel,
     required this.shouldSuggestOuterwear,
   });
 
@@ -13,6 +14,7 @@ class HomeWeatherState {
   final String message;
   final bool isLoading;
   final IconData icon;
+  final String? temperatureLabel;
   final bool shouldSuggestOuterwear;
 
   factory HomeWeatherState.loading() {
@@ -21,6 +23,7 @@ class HomeWeatherState {
       message: 'Checking your local weather...',
       isLoading: true,
       icon: Icons.sync_rounded,
+      temperatureLabel: null,
       shouldSuggestOuterwear: false,
     );
   }

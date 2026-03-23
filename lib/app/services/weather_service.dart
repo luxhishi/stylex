@@ -5,10 +5,12 @@ class WeatherSnapshot {
   const WeatherSnapshot({
     required this.weatherCode,
     required this.isDay,
+    required this.temperatureCelsius,
   });
 
   final int weatherCode;
   final bool isDay;
+  final double temperatureCelsius;
 }
 
 class WeatherService {
@@ -19,7 +21,7 @@ class WeatherService {
     final uri = Uri.https('api.open-meteo.com', '/v1/forecast', {
       'latitude': latitude.toString(),
       'longitude': longitude.toString(),
-      'current': 'weather_code,is_day',
+      'current': 'weather_code,is_day,temperature_2m',
       'timezone': 'auto',
     });
 
@@ -45,6 +47,8 @@ class WeatherService {
       return WeatherSnapshot(
         weatherCode: (current['weather_code'] as num?)?.toInt() ?? 0,
         isDay: ((current['is_day'] as num?)?.toInt() ?? 1) == 1,
+        temperatureCelsius:
+            (current['temperature_2m'] as num?)?.toDouble() ?? 0,
       );
     } finally {
       client.close(force: true);
