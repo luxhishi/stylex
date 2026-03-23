@@ -387,7 +387,7 @@ class PreferenceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = data.wide ? 320.0 : 154.0;
-    final height = data.wide ? 92.0 : 170.0;
+    final minHeight = data.wide ? 112.0 : 170.0;
 
     return InkWell(
       onTap: onTap,
@@ -395,7 +395,7 @@ class PreferenceTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: width,
-        height: height,
+        constraints: BoxConstraints(minHeight: minHeight),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF73E8DF) : const Color(0xFFF3F8F7),
@@ -419,13 +419,19 @@ class PreferenceTile extends StatelessWidget {
                     )
                   : const SizedBox(height: 18),
             ),
-            Text(
-              data.title,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF243234),
-                height: 1,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                data.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: data.wide ? 18 : 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF243234),
+                  height: 1,
+                ),
               ),
             ),
             const SizedBox(height: 6),
