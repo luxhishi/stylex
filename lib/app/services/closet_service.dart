@@ -29,11 +29,21 @@ class ClosetService {
     final user = _supabase.auth.currentUser;
     if (user == null) return const [];
 
-    final itemsResponse = await _supabase
-        .from('clothing_items')
-        .select('id, image_url, source, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', ascending: false);
+    late final List<Map<String, dynamic>> itemsResponse;
+    try {
+      itemsResponse = await _supabase
+          .from('clothing_items')
+          .select('id, image_url, source, created_at, custom_name')
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+    } on PostgrestException catch (error) {
+      if (!_isMissingCustomNameColumn(error)) rethrow;
+      itemsResponse = await _supabase
+          .from('clothing_items')
+          .select('id, image_url, source, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+    }
 
     final itemIds = itemsResponse
         .map((item) => item['id'] as String?)
@@ -81,13 +91,16 @@ class ClosetService {
               (analysis?['primary_color'] as String?)?.trim().isNotEmpty == true
                   ? (analysis!['primary_color'] as String).trim()
                   : 'Neutral',
-          title: (analysis?['garment_type'] as String?)?.trim().isNotEmpty == true
-              ? (analysis!['garment_type'] as String).trim()
-              : 'Closet Piece',
+          title: (item['custom_name'] as String?)?.trim().isNotEmpty == true
+              ? (item['custom_name'] as String).trim()
+              : (analysis?['garment_type'] as String?)?.trim().isNotEmpty == true
+                  ? (analysis!['garment_type'] as String).trim()
+                  : 'Closet Piece',
           subtitle: (analysis?['primary_color'] as String?)?.trim().isNotEmpty ==
                   true
               ? (analysis!['primary_color'] as String).trim().toUpperCase()
               : _labelForSource(item['source'] as String? ?? 'camera_upload'),
+          createdAt: DateTime.tryParse(item['created_at'] as String? ?? ''),
         ),
       );
     }
@@ -210,6 +223,7 @@ class ClosetService {
   Future<void> addClosetItem({
     required String imagePath,
     required String source,
+    required String customName,
     ClosetAnalysisResult? analysis,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -228,28 +242,41 @@ class ClosetService {
           fileOptions: const FileOptions(upsert: false),
         );
 
-    final publicUrl =
-        _supabase.storage.from(storageBucket).getPublicUrl(storagePath);
     final now = DateTime.now().toUtc().toIso8601String();
 
-    final inserted = await _supabase
-        .from('clothing_items')
-        .insert({
-          'user_id': user.id,
-          'image_url': publicUrl,
-          'status': 'draft',
-          'source': source,
-          'ai_processed': analysis != null,
-          'is_confirmed': false,
-          'created_at': now,
-          'updated_at': now,
-        })
-        .select('id')
-        .single();
+    final insertPayload = {
+      'user_id': user.id,
+      'image_url': storagePath,
+      'custom_name': customName.trim(),
+      'status': 'draft',
+      'source': source,
+      'ai_processed': analysis != null,
+      'is_confirmed': false,
+      'created_at': now,
+      'updated_at': now,
+    };
+
+    late final Map<String, dynamic> inserted;
+    try {
+      inserted = await _supabase
+          .from('clothing_items')
+          .insert(insertPayload)
+          .select('id')
+          .single();
+    } on PostgrestException catch (error) {
+      if (!_isMissingCustomNameColumn(error)) rethrow;
+      final fallbackPayload = Map<String, dynamic>.from(insertPayload)
+        ..remove('custom_name');
+      inserted = await _supabase
+          .from('clothing_items')
+          .insert(fallbackPayload)
+          .select('id')
+          .single();
+    }
 
     await _supabase.from('clothing_item_images').insert({
       'clothing_item_id': inserted['id'],
-      'image_url': publicUrl,
+      'image_url': storagePath,
       'image_type': 'original',
       'sort_order': 0,
       'created_at': now,
@@ -310,6 +337,35 @@ class ClosetService {
     }
   }
 
+  Future<void> renameClosetItem({
+    required String itemId,
+    required String newName,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw const AuthException('Please log in again before renaming your item.');
+    }
+
+    try {
+      await _supabase
+          .from('clothing_items')
+          .update({
+            'custom_name': newName.trim(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('id', itemId)
+          .eq('user_id', user.id);
+    } on PostgrestException catch (error) {
+      if (_isMissingCustomNameColumn(error)) {
+        throw const PostgrestException(
+          message:
+              'Custom clothing names are not enabled yet. Run the `20260327_clothing_custom_name.sql` migration first.',
+        );
+      }
+      rethrow;
+    }
+  }
+
   String _extensionForPath(String path) {
     final sanitized = path.split('?').first;
     final dotIndex = sanitized.lastIndexOf('.');
@@ -321,7 +377,7 @@ class ClosetService {
   }
 
   Future<String> _resolvePreviewUrl(String rawUrl) async {
-    final storagePath = _storagePathFromUrl(rawUrl);
+    final storagePath = _storagePathFromValue(rawUrl);
     if (storagePath == null) return rawUrl;
 
     try {
@@ -329,17 +385,36 @@ class ClosetService {
           .from(storageBucket)
           .createSignedUrl(storagePath, 60 * 60);
     } on StorageException {
-      return rawUrl;
+      return _looksLikeUrl(rawUrl)
+          ? rawUrl
+          : _supabase.storage.from(storageBucket).getPublicUrl(storagePath);
     }
   }
 
-  String? _storagePathFromUrl(String url) {
+  String? _storagePathFromValue(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    if (!_looksLikeUrl(trimmed)) {
+      return trimmed;
+    }
+
     final marker = '/$storageBucket/';
-    final index = url.indexOf(marker);
+    final index = trimmed.indexOf(marker);
     if (index == -1) return null;
 
-    final path = url.substring(index + marker.length);
+    final path = trimmed.substring(index + marker.length);
     return path.isEmpty ? null : path.split('?').first;
+  }
+
+  bool _looksLikeUrl(String value) {
+    final lower = value.toLowerCase();
+    return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
+  bool _isMissingCustomNameColumn(PostgrestException error) {
+    final message = error.message.toLowerCase();
+    return message.contains('custom_name') &&
+        (message.contains('schema cache') || message.contains('column'));
   }
 
   String _labelForSource(String source) {

@@ -134,6 +134,108 @@ class _ClosetScreenState extends State<ClosetScreen> {
     );
   }
 
+  Future<void> _showRenameItemSheet(ClosetItemPreview item) async {
+    final controller = TextEditingController(text: item.title);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 14,
+            right: 14,
+            top: 80,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 14,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD8E5E1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Rename Piece',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF203032),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      hintText: 'Classic Tee',
+                      filled: true,
+                      fillColor: const Color(0xFFF4F8F7),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final newName = controller.text.trim();
+                        if (newName.isEmpty) return;
+
+                        await _closetService.renameClosetItem(
+                          itemId: item.id,
+                          newName: newName,
+                        );
+
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop();
+                        await _loadClosetCount();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Piece renamed.')),
+                        );
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0A7A76),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      child: const Text('Save Name'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    controller.dispose();
+  }
+
   Future<void> _pickImage({
     required ImageSource source,
     required String label,
@@ -402,7 +504,10 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         ),
                       )
                     else if (hasClosetItems) ...[
-                      _FeaturedClosetCard(item: filteredItems.first),
+                      _FeaturedClosetCard(
+                        item: filteredItems.first,
+                        onTap: () => _showRenameItemSheet(filteredItems.first),
+                      ),
                       const SizedBox(height: 14),
                       GridView.builder(
                         itemCount: filteredItems.length - 1,
@@ -417,7 +522,10 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         ),
                         itemBuilder: (context, index) {
                           final item = filteredItems[index + 1];
-                          return _ClosetGridCard(item: item);
+                          return _ClosetGridCard(
+                            item: item,
+                            onTap: () => _showRenameItemSheet(item),
+                          );
                         },
                       ),
                       const SizedBox(height: 18),
@@ -686,112 +794,134 @@ class _SourceOptionTile extends StatelessWidget {
 }
 
 class _FeaturedClosetCard extends StatelessWidget {
-  const _FeaturedClosetCard({required this.item});
+  const _FeaturedClosetCard({required this.item, required this.onTap});
 
   final ClosetItemPreview item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F7F4),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: 332,
-            width: double.infinity,
-            child: _ClosetImage(
-              imageUrl: item.imageUrl,
-              borderRadius: 16,
-              tall: true,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F7F4),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 332,
+              width: double.infinity,
+              child: _ClosetImage(
+                imageUrl: item.imageUrl,
+                borderRadius: 16,
+                tall: true,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF203032),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF203032),
+                    ),
                   ),
                 ),
-              ),
-              const Icon(
-                Icons.auto_awesome_rounded,
-                color: Color(0xFF0A7A76),
-                size: 16,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            item.subtitle,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF91A2A4),
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
+                const Icon(
+                  Icons.edit_outlined,
+                  color: Color(0xFF0A7A76),
+                  size: 16,
+                ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              item.subtitle,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF91A2A4),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _ClosetGridCard extends StatelessWidget {
-  const _ClosetGridCard({required this.item});
+  const _ClosetGridCard({required this.item, required this.onTap});
 
   final ClosetItemPreview item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F8F7),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _ClosetImage(
-              imageUrl: item.imageUrl,
-              borderRadius: 14,
-              tall: false,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F8F7),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _ClosetImage(
+                imageUrl: item.imageUrl,
+                borderRadius: 14,
+                tall: false,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            item.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF203032),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF203032),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: Color(0xFF0A7A76),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.subtitle,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF91A2A4),
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
+            const SizedBox(height: 4),
+            Text(
+              item.subtitle,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF91A2A4),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/closet_item_preview.dart';
@@ -13,11 +16,17 @@ import 'settings_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  static void clearSessionCache() {
+    _HomeScreenState.clearSessionCache();
+  }
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const _savedOutfitsKeyPrefix = 'stylex_saved_outfits_v2';
+  static String? _cachedUserId;
   static List<ClosetItemPreview>? _cachedClosetItems;
   static List<ClosetItemPreview>? _cachedOutfitSuggestion;
   static int _cachedSuggestionSeed = 0;
@@ -27,14 +36,33 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ClosetItemPreview> _closetItems = const [];
   List<ClosetItemPreview> _outfitSuggestion = const [];
   int _suggestionSeed = 0;
+  bool _isLoadingCloset = true;
+  int _recentItemsCount = 0;
+  int _unusedItemsCount = 0;
+  String? _unusedItemTitle;
+  List<ClosetItemPreview> _recentItems = const [];
+  List<ClosetItemPreview> _unusedItems = const [];
+
+  static void clearSessionCache() {
+    _cachedUserId = null;
+    _cachedClosetItems = null;
+    _cachedOutfitSuggestion = null;
+    _cachedSuggestionSeed = 0;
+  }
 
   @override
   void initState() {
     super.initState();
     _viewModel = HomeViewModel();
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (_cachedUserId != currentUserId) {
+      clearSessionCache();
+      _cachedUserId = currentUserId;
+    }
     _closetItems = _cachedClosetItems ?? const [];
     _outfitSuggestion = _cachedOutfitSuggestion ?? const [];
     _suggestionSeed = _cachedSuggestionSeed;
+    _isLoadingCloset = _cachedClosetItems == null;
     _initializeHome();
   }
 
@@ -46,15 +74,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializeHome() async {
     final hasCache = _cachedClosetItems != null && _cachedOutfitSuggestion != null;
-    await _viewModel.load(forceRefresh: false);
-    if (!hasCache) {
-      await _loadClosetCount();
-    }
+    await Future.wait([
+      _viewModel.load(forceRefresh: false),
+      if (!hasCache) _loadClosetCount(),
+    ]);
   }
 
   Future<void> _loadClosetCount({bool preserveSuggestion = false}) async {
+    if (mounted) {
+      setState(() => _isLoadingCloset = true);
+    }
+
     try {
       final items = await _closetService.fetchClosetItems();
+      final insights = await _buildClosetInsights(items);
       if (!mounted) return;
       setState(() {
         _closetItems = items;
@@ -64,6 +97,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _cachedClosetItems = _closetItems;
         _cachedOutfitSuggestion = _outfitSuggestion;
         _cachedSuggestionSeed = _suggestionSeed;
+        _cachedUserId = Supabase.instance.client.auth.currentUser?.id;
+        _recentItemsCount = insights.recentItemsCount;
+        _unusedItemsCount = insights.unusedItemsCount;
+        _unusedItemTitle = insights.unusedItemTitle;
+        _recentItems = insights.recentItems;
+        _unusedItems = insights.unusedItems;
+        _isLoadingCloset = false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -72,9 +112,131 @@ class _HomeScreenState extends State<HomeScreen> {
         _outfitSuggestion = const [];
         _cachedClosetItems = _closetItems;
         _cachedOutfitSuggestion = _outfitSuggestion;
+        _cachedUserId = Supabase.instance.client.auth.currentUser?.id;
         _cachedSuggestionSeed = 0;
+        _recentItemsCount = 0;
+        _unusedItemsCount = 0;
+        _unusedItemTitle = null;
+        _recentItems = const [];
+        _unusedItems = const [];
+        _isLoadingCloset = false;
       });
     }
+  }
+
+  Future<_ClosetInsightsData> _buildClosetInsights(
+    List<ClosetItemPreview> items,
+  ) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ?? const [];
+
+    final savedItemIds = <String>{};
+    for (final entry in raw) {
+      try {
+        final json = jsonDecode(entry) as Map<String, dynamic>;
+        final ids = (json['item_ids'] as List<dynamic>? ?? const [])
+            .map((item) => item.toString());
+        savedItemIds.addAll(ids);
+      } catch (_) {
+        continue;
+      }
+    }
+
+    final unusedItems = items.where((item) => !savedItemIds.contains(item.id)).toList();
+    final now = DateTime.now();
+    final recentThreshold = now.subtract(const Duration(days: 7));
+    final recentItemsCount = items.where((item) {
+      final createdAt = item.createdAt;
+      if (createdAt == null) return false;
+      return createdAt.isAfter(recentThreshold);
+    }).length;
+
+    return _ClosetInsightsData(
+      recentItemsCount: recentItemsCount,
+      unusedItemsCount: unusedItems.length,
+      unusedItemTitle: unusedItems.isNotEmpty ? unusedItems.first.title : null,
+      recentItems: items.where((item) {
+        final createdAt = item.createdAt;
+        if (createdAt == null) return false;
+        return createdAt.isAfter(recentThreshold);
+      }).toList(),
+      unusedItems: unusedItems,
+    );
+  }
+
+  void _showInsightItemsSheet({
+    required String title,
+    required String emptyMessage,
+    required List<ClosetItemPreview> items,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 60, 14, 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD8E5E1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF203032),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        emptyMessage,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: const Color(0xFF708082),
+                          height: 1.45,
+                        ),
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: 340,
+                      child: ListView.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          return _InsightItemTile(item: items[index]);
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _refreshSuggestion() {
@@ -160,7 +322,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           badge: 'RECOMMENDED FOR YOU',
                         ),
                         const SizedBox(height: 14),
-                        if (hasClosetItems)
+                        if (_isLoadingCloset)
+                          const _HomeLoadingCard()
+                        else if (hasClosetItems)
                           _OutfitGrid(
                             items: _outfitSuggestion,
                             showOuterwear: weather.shouldSuggestOuterwear,
@@ -198,13 +362,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: FilledButton.icon(
                               onPressed: () async {
                                 await _viewModel.load(forceRefresh: true);
-                                if (!mounted) return;
+                                if (!context.mounted) return;
                                 if (hasClosetItems) {
                                   setState(() {
                                     _suggestionSeed++;
                                     _refreshSuggestion();
                                     _cachedClosetItems = _closetItems;
                                   });
+                                } else if (!_isLoadingCloset) {
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const ClosetScreen(),
+                                    ),
+                                  );
                                 }
                               },
                               style: FilledButton.styleFrom(
@@ -228,7 +398,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? 'Refreshing Style Weather'
                                     : hasClosetItems
                                         ? 'Get Another Suggestion'
-                                        : 'Go To Closet',
+                                        : _isLoadingCloset
+                                            ? 'Loading Your Closet'
+                                            : 'Go To Closet',
                               ),
                             ),
                           ),
@@ -236,15 +408,28 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 28),
                         const _SectionLabel(title: 'Closet Insights'),
                         const SizedBox(height: 14),
-                        if (hasClosetItems)
-                          const Row(
+                        if (_isLoadingCloset)
+                          const _HomeLoadingInsightsCard()
+                        else if (hasClosetItems)
+                          Row(
                             children: [
                               Expanded(
                                 child: _InsightCard(
                                   icon: Icons.auto_awesome_rounded,
                                   title: 'AI Stylist',
-                                  body:
-                                      '3 new pairings found for your favorite blazer.',
+                                  body: _unusedItemsCount == 0
+                                      ? 'Every closet piece has already been used in a saved look.'
+                                      : _unusedItemTitle != null
+                                          ? '$_unusedItemsCount pieces have not been used yet. Try styling $_unusedItemTitle next.'
+                                          : '$_unusedItemsCount pieces have not been used in a saved outfit yet.',
+                                  onTap: () {
+                                    _showInsightItemsSheet(
+                                      title: 'Unused Closet Pieces',
+                                      emptyMessage:
+                                          'Every closet piece has already been used in a saved outfit.',
+                                      items: _unusedItems,
+                                    );
+                                  },
                                 ),
                               ),
                               SizedBox(width: 12),
@@ -252,7 +437,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: _InsightCard(
                                   icon: Icons.inventory_2_outlined,
                                   title: 'Recent Items',
-                                  body: 'You added 5 items this week.',
+                                  body: _recentItemsCount == 0
+                                      ? 'No new items added in the last 7 days.'
+                                      : _recentItemsCount == 1
+                                          ? 'You added 1 item in the last 7 days.'
+                                          : 'You added $_recentItemsCount items in the last 7 days.',
+                                  onTap: () {
+                                    _showInsightItemsSheet(
+                                      title: 'Recently Added Pieces',
+                                      emptyMessage:
+                                          'No new items were added in the last 7 days.',
+                                      items: _recentItems,
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -545,6 +742,56 @@ class _EmptyHomeSuggestionCard extends StatelessWidget {
   }
 }
 
+class _HomeLoadingCard extends StatelessWidget {
+  const _HomeLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F8F7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1EEEB)),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+        child: Column(
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.6,
+                color: Color(0xFF0A7A76),
+              ),
+            ),
+            SizedBox(height: 14),
+            Text(
+              'Loading your closet pieces...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF1F2B2D),
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'We are preparing your outfit suggestions.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF6A7C7E),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _OutfitCard extends StatelessWidget {
   const _OutfitCard({
     required this.item,
@@ -782,44 +1029,60 @@ class _InsightCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String body;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F6F5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5EFEA)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: const Color(0xFF0A7A76), size: 18),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F6F5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE5EFEA)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: const Color(0xFF0A7A76), size: 18),
+                  const Spacer(),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFFA8B6B6),
+                    size: 18,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              body,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF708082),
-                height: 1.45,
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              Text(
+                body,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF708082),
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -874,6 +1137,123 @@ class _EmptyInsightCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: const Color(0xFF708082),
                       height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeLoadingInsightsCard extends StatelessWidget {
+  const _HomeLoadingInsightsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F8F7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1EEEB)),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(18),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: Color(0xFF0A7A76),
+              ),
+            ),
+            SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'Loading closet insights...',
+                style: TextStyle(
+                  color: Color(0xFF708082),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightItemTile extends StatelessWidget {
+  const _InsightItemTile({required this.item});
+
+  final ClosetItemPreview item;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F8F7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE3ECE9)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                item.imageUrl,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Color(0xFFEAF2F0),
+                    ),
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: Icon(
+                        Icons.checkroom_outlined,
+                        color: Color(0xFF7B8D90),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF233234),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${item.category.toUpperCase()} • ${item.subtitle}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF8A999C),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -995,4 +1375,20 @@ class _TrendingCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ClosetInsightsData {
+  const _ClosetInsightsData({
+    required this.recentItemsCount,
+    required this.unusedItemsCount,
+    required this.unusedItemTitle,
+    required this.recentItems,
+    required this.unusedItems,
+  });
+
+  final int recentItemsCount;
+  final int unusedItemsCount;
+  final String? unusedItemTitle;
+  final List<ClosetItemPreview> recentItems;
+  final List<ClosetItemPreview> unusedItems;
 }

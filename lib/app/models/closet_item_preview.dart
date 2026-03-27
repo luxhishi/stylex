@@ -7,6 +7,7 @@ class ClosetItemPreview {
     required this.primaryColor,
     required this.title,
     required this.subtitle,
+    required this.createdAt,
   });
 
   final String id;
@@ -16,4 +17,5 @@ class ClosetItemPreview {
   final String primaryColor;
   final String title;
   final String subtitle;
+  final DateTime? createdAt;
 }

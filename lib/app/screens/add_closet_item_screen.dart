@@ -27,23 +27,35 @@ class AddClosetItemScreen extends StatefulWidget {
 
 class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
   late final AddClosetItemViewModel _viewModel;
+  late final TextEditingController _nameController;
 
   @override
   void initState() {
     super.initState();
     _viewModel = AddClosetItemViewModel();
+    _nameController = TextEditingController(text: widget.analysis.garmentType);
   }
 
   @override
   void dispose() {
+    _nameController.dispose();
     _viewModel.dispose();
     super.dispose();
   }
 
   Future<void> _saveItem() async {
+    final customName = _nameController.text.trim();
+    if (customName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Give this piece a name before saving.')),
+      );
+      return;
+    }
+
     final result = await _viewModel.saveItem(
       imagePath: widget.imagePath,
       source: widget.sourceValue,
+      customName: customName,
       analysis: widget.analysis,
     );
 
@@ -205,6 +217,32 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                       ),
                                     ],
                                   ],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                'Piece Name',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF203032),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _nameController,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: InputDecoration(
+                                  hintText: 'Classic Tee',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF4F8F7),
+                                  prefixIcon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: Color(0xFF0A7A76),
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 18),

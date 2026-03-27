@@ -17,6 +17,7 @@ class AddClosetItemViewModel extends ChangeNotifier {
   Future<ActionResult> saveItem({
     required String imagePath,
     required String source,
+    required String customName,
     required ClosetAnalysisResult analysis,
   }) async {
     _setSaving(true);
@@ -25,6 +26,7 @@ class AddClosetItemViewModel extends ChangeNotifier {
       await _closetService.addClosetItem(
         imagePath: imagePath,
         source: source,
+        customName: customName,
         analysis: analysis,
       );
 

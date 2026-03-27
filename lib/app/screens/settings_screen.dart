@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
+import '../view_models/home_view_model.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
 import 'auth_screen.dart';
@@ -42,6 +43,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isSigningOut = true);
 
     try {
+      HomeScreen.clearSessionCache();
+      HomeViewModel.clearSessionCache();
+
       if (SupabaseConfig.isConfigured) {
         await Supabase.instance.client.auth.signOut();
       }

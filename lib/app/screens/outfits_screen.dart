@@ -20,7 +20,7 @@ class OutfitsScreen extends StatefulWidget {
 }
 
 class _OutfitsScreenState extends State<OutfitsScreen> {
-  static const _savedOutfitsKey = 'stylex_saved_outfits_v1';
+  static const _savedOutfitsKeyPrefix = 'stylex_saved_outfits_v2';
   static const _filters = ['All Items', 'Tops', 'Bottoms', 'Shoes', 'Layers'];
 
   final ClosetService _closetService = ClosetService();
@@ -33,6 +33,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   var _selectedFilter = 'All Items';
   var _isLoading = true;
   var _isSaving = false;
+
+  String get _currentUserId =>
+      Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+
+  String get _savedOutfitsKey => '$_savedOutfitsKeyPrefix:$_currentUserId';
 
   @override
   void initState() {
@@ -53,12 +58,20 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       if (!mounted) return;
       setState(() {
         _closetItems = items;
+        _selectedTop = _retainIfPresent(_selectedTop, items);
+        _selectedBottom = _retainIfPresent(_selectedBottom, items);
+        _selectedShoe = _retainIfPresent(_selectedShoe, items);
+        _selectedLayer = _retainIfPresent(_selectedLayer, items);
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _closetItems = const [];
+        _selectedTop = null;
+        _selectedBottom = null;
+        _selectedShoe = null;
+        _selectedLayer = null;
         _isLoading = false;
       });
     }
@@ -90,6 +103,21 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       _savedOutfitsKey,
       _savedOutfits.map((outfit) => jsonEncode(outfit.toJson())).toList(),
     );
+  }
+
+  ClosetItemPreview? _retainIfPresent(
+    ClosetItemPreview? item,
+    List<ClosetItemPreview> source,
+  ) {
+    if (item == null) return null;
+
+    for (final candidate in source) {
+      if (candidate.id == item.id) {
+        return candidate;
+      }
+    }
+
+    return null;
   }
 
   List<ClosetItemPreview> get _filteredItems {

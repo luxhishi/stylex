@@ -58,7 +58,11 @@ static const String url = 'YOUR_SUPABASE_URL';
 static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
 ```
 
-### 3. Run the app
+### 3. Apply the Supabase schema
+
+Run the SQL in `supabase/migrations/20260323_closet_user_isolation.sql` and `supabase/migrations/20260327_clothing_custom_name.sql` in your Supabase project. This creates the closet tables, the `closet-items` storage bucket, indexes, row-level security policies, and the custom item naming field so each user only has access to their own clothing data.
+
+### 4. Run the app
 
 ```bash
 flutter run
@@ -105,6 +109,7 @@ flutter run
 
 - Weather and outfit suggestions are cached during the active app session to avoid unnecessary refreshes when switching tabs.
 - Outfit suggestions use the closet inventory and rotate through different valid combinations when available.
+- Closet uploads are stored under a per-user storage path and are linked to the signed-in user through `clothing_items.user_id`.
 - The repository includes platform folders for Android, iOS, macOS, Windows, Linux, and web because this is a Flutter project.
 
 ## Status

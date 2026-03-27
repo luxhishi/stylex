@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
 import '../view_models/auth_view_model.dart';
+import '../view_models/home_view_model.dart';
 import '../widgets/onboarding_shell.dart';
 import 'style_preference_screen.dart';
 
@@ -46,7 +47,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!result.success) return;
 
-    Navigator.of(context).push(
+    HomeScreen.clearSessionCache();
+    HomeViewModel.clearSessionCache();
+
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => result.shouldShowStylePreference
             ? const StylePreferenceScreen()

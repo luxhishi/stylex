@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/home_weather_state.dart';
 import '../services/weather_service.dart';
@@ -11,11 +12,23 @@ class HomeViewModel extends ChangeNotifier {
 
   final WeatherService _weatherService;
   static HomeWeatherState? _cachedState;
+  static String? _cachedUserId;
 
   HomeWeatherState _state;
   HomeWeatherState get state => _state;
 
+  static void clearSessionCache() {
+    _cachedState = null;
+    _cachedUserId = null;
+  }
+
   Future<void> load({bool forceRefresh = false}) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (_cachedUserId != currentUserId) {
+      clearSessionCache();
+      _cachedUserId = currentUserId;
+    }
+
     if (!forceRefresh && _cachedState != null) {
       _state = _cachedState!;
       notifyListeners();
