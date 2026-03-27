@@ -137,7 +137,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
   Future<void> _showRenameItemSheet(ClosetItemPreview item) async {
     final controller = TextEditingController(text: item.title);
 
-    await showModalBottomSheet<void>(
+    final newName = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -197,22 +197,11 @@ class _ClosetScreenState extends State<ClosetScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: () async {
-                        final newName = controller.text.trim();
-                        if (newName.isEmpty) return;
-
-                        await _closetService.renameClosetItem(
-                          itemId: item.id,
-                          newName: newName,
-                        );
-
-                        if (!context.mounted) return;
-                        Navigator.of(context).pop();
-                        await _loadClosetCount();
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Piece renamed.')),
-                        );
+                      onPressed: () {
+                        final value = controller.text.trim();
+                        if (value.isEmpty) return;
+                        FocusScope.of(context).unfocus();
+                        Navigator.of(context).pop(value);
                       },
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF0A7A76),
@@ -234,6 +223,19 @@ class _ClosetScreenState extends State<ClosetScreen> {
     );
 
     controller.dispose();
+
+    if (!mounted || newName == null) return;
+
+    await _closetService.renameClosetItem(
+      itemId: item.id,
+      newName: newName,
+    );
+    if (!mounted) return;
+    await _loadClosetCount();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Piece renamed.')),
+    );
   }
 
   Future<void> _pickImage({
