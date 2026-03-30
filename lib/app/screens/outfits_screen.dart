@@ -467,10 +467,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
 
   Future<void> _pickDateForOutfit(_SavedOutfit outfit) async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
       initialDate: now,
-      firstDate: DateTime(now.year - 1),
+      firstDate: today,
       lastDate: DateTime(now.year + 3, 12, 31),
     );
 
@@ -484,6 +485,10 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   }
 
   Future<void> _showPlannerDaySheet(DateTime date) async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final selectedDate = DateTime(date.year, date.month, date.day);
+    final isPastDate = selectedDate.isBefore(todayDate);
     final plannedEvent = _plannedEventForDate(date);
     final titleController = TextEditingController(
       text: plannedEvent?.eventTitle ?? '',
@@ -549,6 +554,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         const SizedBox(height: 12),
                         TextField(
                           controller: titleController,
+                          enabled: !isPastDate,
                           onChanged: (_) => setModalState(() {}),
                           decoration: InputDecoration(
                             labelText: 'Event title',
@@ -564,6 +570,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         const SizedBox(height: 10),
                         TextField(
                           controller: notesController,
+                          enabled: !isPastDate,
                           onChanged: (_) => setModalState(() {}),
                           minLines: 2,
                           maxLines: 3,
@@ -605,7 +612,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: plannedEvent == null
+                                onPressed: isPastDate || plannedEvent == null
                                     ? null
                                     : () async {
                                         Navigator.of(context).pop();
@@ -627,7 +634,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: FilledButton(
-                                onPressed: selectedOutfit == null
+                                onPressed: isPastDate || selectedOutfit == null
                                     ? null
                                     : () async {
                                         FocusScope.of(context).unfocus();
@@ -661,7 +668,15 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        if (_savedOutfits.isEmpty)
+                        if (isPastDate)
+                          Text(
+                            'Past dates are view-only. You can plan outfits starting from today.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF708082),
+                              height: 1.45,
+                            ),
+                          )
+                        else if (_savedOutfits.isEmpty)
                           Text(
                             'Save an outfit first to schedule it on the calendar.',
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -1338,6 +1353,10 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             ),
                             itemBuilder: (context, index) {
                               final date = _calendarDaysForMonth(_plannerMonth)[index];
+                              final now = DateTime.now();
+                              final todayDate = DateTime(now.year, now.month, now.day);
+                              final selectedDate =
+                                  DateTime(date.year, date.month, date.day);
                               final plannedEvent = _plannedEventForDate(date);
                               final plannedOutfit = _plannedOutfitForDate(date);
                               return _PlannerDayCard(
@@ -1345,6 +1364,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 currentMonth: _plannerMonth,
                                 eventTitle: plannedEvent?.eventTitle,
                                 plannedOutfitName: plannedOutfit?.name,
+                                isEditable: !selectedDate.isBefore(todayDate),
                                 onTap: () => _showPlannerDaySheet(date),
                               );
                             },
@@ -1509,6 +1529,7 @@ class _PlannerDayCard extends StatelessWidget {
     required this.currentMonth,
     required this.eventTitle,
     required this.plannedOutfitName,
+    required this.isEditable,
     required this.onTap,
   });
 
@@ -1516,6 +1537,7 @@ class _PlannerDayCard extends StatelessWidget {
   final DateTime currentMonth;
   final String? eventTitle;
   final String? plannedOutfitName;
+  final bool isEditable;
   final VoidCallback onTap;
 
   @override
@@ -1524,40 +1546,80 @@ class _PlannerDayCard extends StatelessWidget {
     final today = DateTime.now();
     final isToday =
         date.year == today.year && date.month == today.month && date.day == today.day;
+    final isPastDate = !isEditable;
     final hasPlan = plannedOutfitName != null;
     final label = (eventTitle?.trim().isNotEmpty ?? false)
         ? eventTitle!.trim()
         : plannedOutfitName;
+    final canOpen = isEditable || hasPlan;
 
     return InkWell(
-      onTap: onTap,
+      onTap: canOpen ? onTap : null,
       borderRadius: BorderRadius.circular(14),
       child: Ink(
         decoration: BoxDecoration(
-          color: hasPlan ? const Color(0xFFDFF4EF) : Colors.white,
+          color: isToday
+              ? const Color(0xFF0A7A76)
+              : hasPlan
+                  ? const Color(0xFFDFF4EF)
+                  : isPastDate
+                      ? const Color(0xFFF4F7F6)
+                      : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isToday
                 ? const Color(0xFF0A7A76)
-                : const Color(0xFFE1EAE7),
-            width: isToday ? 1.6 : 1,
+                : canOpen
+                    ? const Color(0xFFE1EAE7)
+                    : const Color(0xFFF0F4F3),
+            width: isToday ? 2.2 : 1,
           ),
+          boxShadow: isToday
+              ? const [
+                  BoxShadow(
+                    color: Color(0x330A7A76),
+                    blurRadius: 14,
+                    offset: Offset(0, 6),
+                  ),
+                ]
+              : null,
         ),
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${date.day}',
-                style: TextStyle(
-                  color: isCurrentMonth
-                      ? const Color(0xFF223234)
-                      : const Color(0xFFA6B3B4),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Container(
+                    width: isToday ? 26 : null,
+                    height: isToday ? 26 : null,
+                    alignment: Alignment.center,
+                    padding: isToday
+                        ? EdgeInsets.zero
+                        : const EdgeInsets.symmetric(horizontal: 1),
+                    decoration: isToday
+                        ? const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          )
+                        : null,
+                    child: Text(
+                      '${date.day}',
+                      style: TextStyle(
+                        color: isToday
+                            ? const Color(0xFF0A7A76)
+                            : isPastDate
+                                ? const Color(0xFFA9B7B8)
+                                : isCurrentMonth
+                                    ? const Color(0xFF223234)
+                                    : const Color(0xFFA6B3B4),
+                        fontSize: isToday ? 12 : 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
               const SizedBox(height: 4),
               if (hasPlan)
                 Expanded(
@@ -1585,7 +1647,41 @@ class _PlannerDayCard extends StatelessWidget {
                   ),
                 )
               else
-                const Spacer(),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: isToday
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.22),
+                              ),
+                            ),
+                            child: const Text(
+                              'TODAY',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            canOpen ? Icons.add_rounded : Icons.remove_rounded,
+                            size: 14,
+                            color: isPastDate
+                                ? const Color(0xFFC4CFD0)
+                                : const Color(0xFFA9B7B8),
+                          ),
+                  ),
+                ),
             ],
           ),
         ),

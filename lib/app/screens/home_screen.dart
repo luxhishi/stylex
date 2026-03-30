@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -61,7 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _closetItems = _cachedClosetItems ?? const [];
     _outfitSuggestion = _cachedOutfitSuggestion ?? const [];
-    _suggestionSeed = _cachedSuggestionSeed;
+    _suggestionSeed = _cachedOutfitSuggestion == null
+        ? DateTime.now().millisecondsSinceEpoch
+        : _cachedSuggestionSeed;
     _isLoadingCloset = _cachedClosetItems == null;
     _initializeHome();
   }
@@ -1266,111 +1269,160 @@ class _InsightItemTile extends StatelessWidget {
   }
 }
 
-class _TrendingCard extends StatelessWidget {
+class _TrendingCard extends StatefulWidget {
   const _TrendingCard();
+
+  @override
+  State<_TrendingCard> createState() => _TrendingCardState();
+}
+
+class _TrendingCardState extends State<_TrendingCard> {
+  static const _items = [
+    _TrendingCombination(
+      title: 'The Modern Explorer',
+      label: 'CASUAL - 85% MATCH',
+      sideLabel: 'METRO FORM',
+      backgroundColors: [Color(0xFFF7DFD7), Color(0xFFF4EEE8)],
+      orbColors: [Color(0xFF4D2E20), Color(0xFF1D130D)],
+    ),
+    _TrendingCombination(
+      title: 'Soft Power Layers',
+      label: 'SMART - 92% MATCH',
+      sideLabel: 'CITY EDIT',
+      backgroundColors: [Color(0xFFDDEFEA), Color(0xFFF4FBF8)],
+      orbColors: [Color(0xFF41685E), Color(0xFF203A35)],
+    ),
+    _TrendingCombination(
+      title: 'Weekend Minimal',
+      label: 'EASY - 88% MATCH',
+      sideLabel: 'OFF DUTY',
+      backgroundColors: [Color(0xFFE3ECFF), Color(0xFFF4F7FF)],
+      orbColors: [Color(0xFF294C82), Color(0xFF18263F)],
+    ),
+  ];
+
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      setState(() {
+        _index = (_index + 1) % _items.length;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final item = _items[_index];
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: SizedBox(
-        height: 170,
-        child: Row(
-          children: [
-            Expanded(
-              flex: 5,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFFF7DFD7),
-                      Color(0xFFF4EEE8),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 450),
+      child: ClipRRect(
+        key: ValueKey(item.title),
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          height: 170,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: item.backgroundColors,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 18,
+                        right: 18,
+                        top: 14,
+                        bottom: 42,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: item.orbColors),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 14,
+                        right: 14,
+                        bottom: 12,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF1F2A2C),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.label,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: const Color(0xFF6E8F95),
+                                    letterSpacing: 1.1,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                child: Stack(
-                  children: [
-                    const Positioned(
-                      left: 18,
-                      right: 18,
-                      top: 14,
-                      bottom: 42,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF4D2E20), Color(0xFF1D130D)],
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 14,
-                      right: 14,
-                      bottom: 12,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'The Modern Explorer',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1F2A2C),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'CASUAL - 85% MATCH',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: const Color(0xFF6E8F95),
-                                  letterSpacing: 1.1,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 1,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7F6),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: RotatedBox(
-                  quarterTurns: 3,
-                  child: Center(
-                    child: Text(
-                      'METRO FORM',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFF98A8AA),
-                        letterSpacing: 1.8,
-                        fontWeight: FontWeight.w800,
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F7F6),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: RotatedBox(
+                    quarterTurns: 3,
+                    child: Center(
+                      child: Text(
+                        item.sideLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFF98A8AA),
+                          letterSpacing: 1.8,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1391,4 +1443,20 @@ class _ClosetInsightsData {
   final String? unusedItemTitle;
   final List<ClosetItemPreview> recentItems;
   final List<ClosetItemPreview> unusedItems;
+}
+
+class _TrendingCombination {
+  const _TrendingCombination({
+    required this.title,
+    required this.label,
+    required this.sideLabel,
+    required this.backgroundColors,
+    required this.orbColors,
+  });
+
+  final String title;
+  final String label;
+  final String sideLabel;
+  final List<Color> backgroundColors;
+  final List<Color> orbColors;
 }
