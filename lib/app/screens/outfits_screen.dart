@@ -21,6 +21,7 @@ class OutfitsScreen extends StatefulWidget {
 
 class _OutfitsScreenState extends State<OutfitsScreen> {
   static const _savedOutfitsKeyPrefix = 'stylex_saved_outfits_v2';
+  static const _plannedOutfitsKeyPrefix = 'stylex_planned_outfits_v1';
   static const _filters = ['All Items', 'Tops', 'Bottoms', 'Shoes', 'Layers'];
 
   final ClosetService _closetService = ClosetService();
@@ -33,15 +34,20 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   var _selectedFilter = 'All Items';
   var _isLoading = true;
   var _isSaving = false;
+  late DateTime _plannerMonth;
+  Map<String, _PlannedEvent> _plannedEventsByDate = const {};
 
   String get _currentUserId =>
       Supabase.instance.client.auth.currentUser?.id ?? 'guest';
 
   String get _savedOutfitsKey => '$_savedOutfitsKeyPrefix:$_currentUserId';
+  String get _plannedOutfitsKey => '$_plannedOutfitsKeyPrefix:$_currentUserId';
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _plannerMonth = DateTime(now.year, now.month);
     _initialize();
   }
 
@@ -49,6 +55,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     await Future.wait([
       _loadClosetItems(),
       _loadSavedOutfits(),
+      _loadPlannedOutfits(),
     ]);
   }
 
@@ -102,6 +109,47 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     await prefs.setStringList(
       _savedOutfitsKey,
       _savedOutfits.map((outfit) => jsonEncode(outfit.toJson())).toList(),
+    );
+  }
+
+  Future<void> _loadPlannedOutfits() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_plannedOutfitsKey);
+
+    if (raw == null || raw.isEmpty) {
+      if (!mounted) return;
+      setState(() => _plannedEventsByDate = const {});
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _plannedEventsByDate = decoded.map(
+          (key, value) => MapEntry(
+            key,
+            value is String
+                ? _PlannedEvent(outfitId: value)
+                : _PlannedEvent.fromJson(value as Map<String, dynamic>),
+          ),
+        );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _plannedEventsByDate = const {});
+    }
+  }
+
+  Future<void> _persistPlannedOutfits() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _plannedOutfitsKey,
+      jsonEncode(
+        _plannedEventsByDate.map(
+          (key, value) => MapEntry(key, value.toJson()),
+        ),
+      ),
     );
   }
 
@@ -338,6 +386,359 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     await _persistSavedOutfits();
   }
 
+  String _dateKey(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final month = normalized.month.toString().padLeft(2, '0');
+    final day = normalized.day.toString().padLeft(2, '0');
+    return '${normalized.year}-$month-$day';
+  }
+
+  DateTime _startOfCalendarGrid(DateTime month) {
+    final firstDayOfMonth = DateTime(month.year, month.month);
+    final offset = firstDayOfMonth.weekday % 7;
+    return firstDayOfMonth.subtract(Duration(days: offset));
+  }
+
+  List<DateTime> _calendarDaysForMonth(DateTime month) {
+    final start = _startOfCalendarGrid(month);
+    return List<DateTime>.generate(
+      42,
+      (index) => DateTime(start.year, start.month, start.day + index),
+    );
+  }
+
+  _SavedOutfit? _savedOutfitById(String id) {
+    for (final outfit in _savedOutfits) {
+      if (outfit.createdAt == id) {
+        return outfit;
+      }
+    }
+    return null;
+  }
+
+  _PlannedEvent? _plannedEventForDate(DateTime date) {
+    return _plannedEventsByDate[_dateKey(date)];
+  }
+
+  _SavedOutfit? _plannedOutfitForDate(DateTime date) {
+    final plannedEvent = _plannedEventForDate(date);
+    if (plannedEvent == null) return null;
+    return _savedOutfitById(plannedEvent.outfitId);
+  }
+
+  Future<void> _scheduleOutfitForDate({
+    required _SavedOutfit outfit,
+    required DateTime date,
+    required String eventTitle,
+    required String eventNotes,
+  }) async {
+    final key = _dateKey(date);
+    setState(() {
+      _plannedEventsByDate = {
+        ..._plannedEventsByDate,
+        key: _PlannedEvent(
+          outfitId: outfit.createdAt,
+          eventTitle: eventTitle.trim(),
+          eventNotes: eventNotes.trim(),
+        ),
+      };
+      _plannerMonth = DateTime(date.year, date.month);
+    });
+    await _persistPlannedOutfits();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${outfit.name} saved for ${_formatReadableDate(date)}.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removePlannedOutfit(DateTime date) async {
+    final key = _dateKey(date);
+    if (!_plannedEventsByDate.containsKey(key)) return;
+
+    final updated = Map<String, _PlannedEvent>.from(_plannedEventsByDate)
+      ..remove(key);
+    setState(() => _plannedEventsByDate = updated);
+    await _persistPlannedOutfits();
+  }
+
+  Future<void> _pickDateForOutfit(_SavedOutfit outfit) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 3, 12, 31),
+    );
+
+    if (picked == null || !mounted) return;
+    await _scheduleOutfitForDate(
+      outfit: outfit,
+      date: picked,
+      eventTitle: '',
+      eventNotes: '',
+    );
+  }
+
+  Future<void> _showPlannerDaySheet(DateTime date) async {
+    final plannedEvent = _plannedEventForDate(date);
+    final titleController = TextEditingController(
+      text: plannedEvent?.eventTitle ?? '',
+    );
+    final notesController = TextEditingController(
+      text: plannedEvent?.eventNotes ?? '',
+    );
+    String? selectedOutfitId = plannedEvent?.outfitId;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final selectedOutfit =
+                selectedOutfitId == null ? null : _savedOutfitById(selectedOutfitId!);
+            final selectedItems =
+                selectedOutfit == null ? const <ClosetItemPreview>[] : _resolveSavedOutfitItems(selectedOutfit);
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                14,
+                80,
+                14,
+                MediaQuery.of(context).viewInsets.bottom + 14,
+              ),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.82,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 42,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD8E5E1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _formatReadableDate(date),
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF203032),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: titleController,
+                          onChanged: (_) => setModalState(() {}),
+                          decoration: InputDecoration(
+                            labelText: 'Event title',
+                            hintText: 'Dinner, meeting, party...',
+                            filled: true,
+                            fillColor: const Color(0xFFF3F8F7),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: notesController,
+                          onChanged: (_) => setModalState(() {}),
+                          minLines: 2,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'Event details',
+                            hintText: 'Location, dress code, notes...',
+                            filled: true,
+                            fillColor: const Color(0xFFF3F8F7),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Outfit Preview',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF233234),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (selectedOutfit == null)
+                          Text(
+                            'Choose a saved look below to plan this date.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF708082),
+                            ),
+                          )
+                        else
+                          _PlannerPreviewCard(
+                            outfit: selectedOutfit,
+                            items: selectedItems,
+                            notes: notesController.text.trim(),
+                          ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: plannedEvent == null
+                                    ? null
+                                    : () async {
+                                        Navigator.of(context).pop();
+                                        await _removePlannedOutfit(date);
+                                      },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFD45F5D),
+                                  side: const BorderSide(
+                                    color: Color(0xFFF0CDCB),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                                child: const Text('Remove'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: selectedOutfit == null
+                                    ? null
+                                    : () async {
+                                        FocusScope.of(context).unfocus();
+                                        Navigator.of(context).pop();
+                                        await _scheduleOutfitForDate(
+                                          outfit: selectedOutfit,
+                                          date: date,
+                                          eventTitle: titleController.text,
+                                          eventNotes: notesController.text,
+                                        );
+                                      },
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0A7A76),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                ),
+                                child: const Text('Save Event'),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Choose a saved look',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF233234),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        if (_savedOutfits.isEmpty)
+                          Text(
+                            'Save an outfit first to schedule it on the calendar.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF708082),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: _savedOutfits.length,
+                              separatorBuilder: (_, _) => const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final outfit = _savedOutfits[index];
+                                return _PlannerLookTile(
+                                  outfit: outfit,
+                                  selected: selectedOutfitId == outfit.createdAt,
+                                  onTap: () {
+                                    setModalState(() {
+                                      selectedOutfitId = outfit.createdAt;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    titleController.dispose();
+    notesController.dispose();
+  }
+
+  String _formatReadableDate(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _monthLabel(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return months[date.month - 1];
+  }
+
   Future<void> _showSavedLookDetails(_SavedOutfit outfit) async {
     final items = _resolveSavedOutfitItems(outfit);
     if (items.isEmpty) {
@@ -422,6 +823,26 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         final item = items[index];
                         return _SavedLookDetailCard(item: item);
                       },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () async {
+                        Navigator.of(context).pop();
+                        await _pickDateForOutfit(outfit);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFDFF4EF),
+                        foregroundColor: const Color(0xFF0A7A76),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                      label: const Text('Save To Date'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -843,6 +1264,94 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                           ],
                         ),
                       ),
+                    const SizedBox(height: 16),
+                    _SoftPanel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Outfit Calendar',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF233234),
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _plannerMonth = DateTime(
+                                      _plannerMonth.year,
+                                      _plannerMonth.month - 1,
+                                    );
+                                  });
+                                },
+                                icon: const Icon(Icons.chevron_left_rounded),
+                                color: const Color(0xFF6E8082),
+                              ),
+                              Text(
+                                '${_monthLabel(_plannerMonth)} ${_plannerMonth.year}',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF233234),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _plannerMonth = DateTime(
+                                      _plannerMonth.year,
+                                      _plannerMonth.month + 1,
+                                    );
+                                  });
+                                },
+                                icon: const Icon(Icons.chevron_right_rounded),
+                                color: const Color(0xFF6E8082),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Row(
+                            children: [
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Sun')),
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Mon')),
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Tue')),
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Wed')),
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Thu')),
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Fri')),
+                              Expanded(child: _PlannerWeekdayLabel(label: 'Sat')),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          GridView.builder(
+                            itemCount: _calendarDaysForMonth(_plannerMonth).length,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 7,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 0.82,
+                            ),
+                            itemBuilder: (context, index) {
+                              final date = _calendarDaysForMonth(_plannerMonth)[index];
+                              final plannedEvent = _plannedEventForDate(date);
+                              final plannedOutfit = _plannedOutfitForDate(date);
+                              return _PlannerDayCard(
+                                date: date,
+                                currentMonth: _plannerMonth,
+                                eventTitle: plannedEvent?.eventTitle,
+                                plannedOutfitName: plannedOutfit?.name,
+                                onTap: () => _showPlannerDaySheet(date),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -968,6 +1477,266 @@ class _SoftPanel extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: child,
+      ),
+    );
+  }
+}
+
+class _PlannerWeekdayLabel extends StatelessWidget {
+  const _PlannerWeekdayLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF97A6A8),
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _PlannerDayCard extends StatelessWidget {
+  const _PlannerDayCard({
+    required this.date,
+    required this.currentMonth,
+    required this.eventTitle,
+    required this.plannedOutfitName,
+    required this.onTap,
+  });
+
+  final DateTime date;
+  final DateTime currentMonth;
+  final String? eventTitle;
+  final String? plannedOutfitName;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurrentMonth = date.month == currentMonth.month;
+    final today = DateTime.now();
+    final isToday =
+        date.year == today.year && date.month == today.month && date.day == today.day;
+    final hasPlan = plannedOutfitName != null;
+    final label = (eventTitle?.trim().isNotEmpty ?? false)
+        ? eventTitle!.trim()
+        : plannedOutfitName;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        decoration: BoxDecoration(
+          color: hasPlan ? const Color(0xFFDFF4EF) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isToday
+                ? const Color(0xFF0A7A76)
+                : const Color(0xFFE1EAE7),
+            width: isToday ? 1.6 : 1,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${date.day}',
+                style: TextStyle(
+                  color: isCurrentMonth
+                      ? const Color(0xFF223234)
+                      : const Color(0xFFA6B3B4),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              if (hasPlan)
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A7A76),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      label ?? plannedOutfitName!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlannerPreviewCard extends StatelessWidget {
+  const _PlannerPreviewCard({
+    required this.outfit,
+    required this.items,
+    required this.notes,
+  });
+
+  final _SavedOutfit outfit;
+  final List<ClosetItemPreview> items;
+  final String notes;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewItems = items.take(2).toList();
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F8F7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1EAE7)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 96,
+              height: 76,
+              child: Row(
+                children: previewItems.map((item) {
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: item == previewItems.last ? 0 : 6,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          item.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Color(0xFFEAF2F0),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    outfit.name,
+                    style: const TextStyle(
+                      color: Color(0xFF223234),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${items.length} pieces',
+                    style: const TextStyle(
+                      color: Color(0xFF8A999C),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                  if (notes.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      notes.trim(),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF6E8082),
+                        fontSize: 10,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlannerLookTile extends StatelessWidget {
+  const _PlannerLookTile({
+    required this.outfit,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _SavedOutfit outfit;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Ink(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFDFF4EF) : const Color(0xFFF4F8F7),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? const Color(0xFF0A7A76) : const Color(0xFFE2EBE8),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.calendar_today_rounded,
+              color: selected ? const Color(0xFF0A7A76) : const Color(0xFF8FA1A3),
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                outfit.name,
+                style: const TextStyle(
+                  color: Color(0xFF233234),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1531,6 +2300,34 @@ class _SavedOutfit {
       name: name ?? this.name,
       itemIds: itemIds ?? this.itemIds,
       createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}
+
+class _PlannedEvent {
+  const _PlannedEvent({
+    required this.outfitId,
+    this.eventTitle = '',
+    this.eventNotes = '',
+  });
+
+  final String outfitId;
+  final String eventTitle;
+  final String eventNotes;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'outfit_id': outfitId,
+      'event_title': eventTitle,
+      'event_notes': eventNotes,
+    };
+  }
+
+  factory _PlannedEvent.fromJson(Map<String, dynamic> json) {
+    return _PlannedEvent(
+      outfitId: json['outfit_id'] as String? ?? '',
+      eventTitle: json['event_title'] as String? ?? '',
+      eventNotes: json['event_notes'] as String? ?? '',
     );
   }
 }
