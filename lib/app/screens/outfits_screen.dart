@@ -491,232 +491,37 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     final selectedDate = DateTime(date.year, date.month, date.day);
     final isPastDate = selectedDate.isBefore(todayDate);
     final plannedEvent = _plannedEventForDate(date);
-    final titleController = TextEditingController(
-      text: plannedEvent?.eventTitle ?? '',
-    );
-    final notesController = TextEditingController(
-      text: plannedEvent?.eventNotes ?? '',
-    );
-    String? selectedOutfitId = plannedEvent?.outfitId;
-
-    await showModalBottomSheet<void>(
+    final result = await showModalBottomSheet<_PlannerDaySheetResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final theme = Theme.of(context);
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final selectedOutfit =
-                selectedOutfitId == null ? null : _savedOutfitById(selectedOutfitId!);
-            final selectedItems =
-                selectedOutfit == null ? const <ClosetItemPreview>[] : _resolveSavedOutfitItems(selectedOutfit);
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                14,
-                80,
-                14,
-                MediaQuery.of(context).viewInsets.bottom + 14,
-              ),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.82,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 42,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD8E5E1),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _formatReadableDate(date),
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF203032),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: titleController,
-                          enabled: !isPastDate,
-                          onChanged: (_) => setModalState(() {}),
-                          decoration: InputDecoration(
-                            labelText: 'Event title',
-                            hintText: 'Dinner, meeting, party...',
-                            filled: true,
-                            fillColor: const Color(0xFFF3F8F7),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: notesController,
-                          enabled: !isPastDate,
-                          onChanged: (_) => setModalState(() {}),
-                          minLines: 2,
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            labelText: 'Event details',
-                            hintText: 'Location, dress code, notes...',
-                            filled: true,
-                            fillColor: const Color(0xFFF3F8F7),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Outfit Preview',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF233234),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (selectedOutfit == null)
-                          Text(
-                            'Choose a saved look below to plan this date.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF708082),
-                            ),
-                          )
-                        else
-                          _PlannerPreviewCard(
-                            outfit: selectedOutfit,
-                            items: selectedItems,
-                            notes: notesController.text.trim(),
-                          ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: isPastDate || plannedEvent == null
-                                    ? null
-                                    : () async {
-                                        Navigator.of(context).pop();
-                                        await _removePlannedOutfit(date);
-                                      },
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFFD45F5D),
-                                  side: const BorderSide(
-                                    color: Color(0xFFF0CDCB),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                ),
-                                child: const Text('Remove'),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: isPastDate || selectedOutfit == null
-                                    ? null
-                                    : () async {
-                                        FocusScope.of(context).unfocus();
-                                        Navigator.of(context).pop();
-                                        await _scheduleOutfitForDate(
-                                          outfit: selectedOutfit,
-                                          date: date,
-                                          eventTitle: titleController.text,
-                                          eventNotes: notesController.text,
-                                        );
-                                      },
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0A7A76),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                ),
-                                child: const Text('Save Event'),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Choose a saved look',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF233234),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (isPastDate)
-                          Text(
-                            'Past dates are view-only. You can plan outfits starting from today.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF708082),
-                              height: 1.45,
-                            ),
-                          )
-                        else if (_savedOutfits.isEmpty)
-                          Text(
-                            'Save an outfit first to schedule it on the calendar.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF708082),
-                            ),
-                          )
-                        else
-                          Flexible(
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: _savedOutfits.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final outfit = _savedOutfits[index];
-                                return _PlannerLookTile(
-                                  outfit: outfit,
-                                  selected: selectedOutfitId == outfit.createdAt,
-                                  onTap: () {
-                                    setModalState(() {
-                                      selectedOutfitId = outfit.createdAt;
-                                    });
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+        return _PlannerDaySheet(
+          date: date,
+          isPastDate: isPastDate,
+          initialEvent: plannedEvent,
+          savedOutfits: _savedOutfits,
+          resolveOutfit: _savedOutfitById,
+          resolveItems: _resolveSavedOutfitItems,
+          formatReadableDate: _formatReadableDate,
         );
       },
     );
 
-    titleController.dispose();
-    notesController.dispose();
+    if (!mounted || result == null) return;
+    if (result.removeEvent) {
+      await _removePlannedOutfit(date);
+      return;
+    }
+
+    final selectedOutfit = _savedOutfitById(result.outfitId ?? '');
+    if (selectedOutfit == null) return;
+    await _scheduleOutfitForDate(
+      outfit: selectedOutfit,
+      date: date,
+      eventTitle: result.eventTitle,
+      eventNotes: result.eventNotes,
+    );
   }
 
   String _formatReadableDate(DateTime date) {
@@ -1543,6 +1348,264 @@ class _PlannerWeekdayLabel extends StatelessWidget {
   }
 }
 
+class _PlannerDaySheet extends StatefulWidget {
+  const _PlannerDaySheet({
+    required this.date,
+    required this.isPastDate,
+    required this.initialEvent,
+    required this.savedOutfits,
+    required this.resolveOutfit,
+    required this.resolveItems,
+    required this.formatReadableDate,
+  });
+
+  final DateTime date;
+  final bool isPastDate;
+  final _PlannedEvent? initialEvent;
+  final List<_SavedOutfit> savedOutfits;
+  final _SavedOutfit? Function(String id) resolveOutfit;
+  final List<ClosetItemPreview> Function(_SavedOutfit outfit) resolveItems;
+  final String Function(DateTime date) formatReadableDate;
+
+  @override
+  State<_PlannerDaySheet> createState() => _PlannerDaySheetState();
+}
+
+class _PlannerDaySheetState extends State<_PlannerDaySheet> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _notesController;
+  String? _selectedOutfitId;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(
+      text: widget.initialEvent?.eventTitle ?? '',
+    );
+    _notesController = TextEditingController(
+      text: widget.initialEvent?.eventNotes ?? '',
+    );
+    _selectedOutfitId = widget.initialEvent?.outfitId;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedOutfit =
+        _selectedOutfitId == null ? null : widget.resolveOutfit(_selectedOutfitId!);
+    final selectedItems =
+        selectedOutfit == null ? const <ClosetItemPreview>[] : widget.resolveItems(selectedOutfit);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        14,
+        80,
+        14,
+        MediaQuery.of(context).viewInsets.bottom + 14,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.82,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD8E5E1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.formatReadableDate(widget.date),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF203032),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _titleController,
+                  enabled: !widget.isPastDate,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    labelText: 'Event title',
+                    hintText: 'Dinner, meeting, party...',
+                    filled: true,
+                    fillColor: const Color(0xFFF3F8F7),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _notesController,
+                  enabled: !widget.isPastDate,
+                  onChanged: (_) => setState(() {}),
+                  minLines: 2,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Event details',
+                    hintText: 'Location, dress code, notes...',
+                    filled: true,
+                    fillColor: const Color(0xFFF3F8F7),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Outfit Preview',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF233234),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (selectedOutfit == null)
+                  Text(
+                    'Choose a saved look below to plan this date.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF708082),
+                    ),
+                  )
+                else
+                  _PlannerPreviewCard(
+                    outfit: selectedOutfit,
+                    items: selectedItems,
+                    notes: _notesController.text.trim(),
+                  ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: widget.isPastDate || widget.initialEvent == null
+                            ? null
+                            : () {
+                                FocusScope.of(context).unfocus();
+                                Navigator.of(context).pop(
+                                  const _PlannerDaySheetResult(removeEvent: true),
+                                );
+                              },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD45F5D),
+                          side: const BorderSide(
+                            color: Color(0xFFF0CDCB),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        child: const Text('Remove'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: widget.isPastDate || selectedOutfit == null
+                            ? null
+                            : () {
+                                FocusScope.of(context).unfocus();
+                                Navigator.of(context).pop(
+                                  _PlannerDaySheetResult(
+                                    outfitId: selectedOutfit.createdAt,
+                                    eventTitle: _titleController.text,
+                                    eventNotes: _notesController.text,
+                                  ),
+                                );
+                              },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF0A7A76),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        child: const Text('Save Event'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Choose a saved look',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF233234),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (widget.isPastDate)
+                  Text(
+                    'Past dates are view-only. You can plan outfits starting from today.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF708082),
+                      height: 1.45,
+                    ),
+                  )
+                else if (widget.savedOutfits.isEmpty)
+                  Text(
+                    'Save an outfit first to schedule it on the calendar.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF708082),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: widget.savedOutfits.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final outfit = widget.savedOutfits[index];
+                        return _PlannerLookTile(
+                          outfit: outfit,
+                          selected: _selectedOutfitId == outfit.createdAt,
+                          onTap: () {
+                            setState(() {
+                              _selectedOutfitId = outfit.createdAt;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PlannerDayCard extends StatelessWidget {
   const _PlannerDayCard({
     required this.date,
@@ -1708,6 +1771,20 @@ class _PlannerDayCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PlannerDaySheetResult {
+  const _PlannerDaySheetResult({
+    this.outfitId,
+    this.eventTitle = '',
+    this.eventNotes = '',
+    this.removeEvent = false,
+  });
+
+  final String? outfitId;
+  final String eventTitle;
+  final String eventNotes;
+  final bool removeEvent;
 }
 
 class _PlannerPreviewCard extends StatelessWidget {
