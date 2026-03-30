@@ -1667,106 +1667,120 @@ class _PlannerDayCard extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: Container(
-                    width: isToday ? 26 : null,
-                    height: isToday ? 26 : null,
-                    alignment: Alignment.center,
-                    padding: isToday
-                        ? EdgeInsets.zero
-                        : const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: isToday
-                        ? const BoxDecoration(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxHeight <= 50;
+            final tight = constraints.maxHeight <= 46;
+            final padding = tight ? 4.0 : (compact ? 5.0 : 6.0);
+            final dateBadgeSize = isToday ? (tight ? 20.0 : (compact ? 22.0 : 26.0)) : null;
+            final dateFontSize = isToday ? (tight ? 10.0 : 12.0) : (tight ? 9.0 : 11.0);
+            final gap = tight ? 2.0 : 4.0;
+            final markerIconSize = tight ? 11.0 : 14.0;
+            final tagVertical = tight ? 2.0 : 3.0;
+            final tagHorizontal = tight ? 4.0 : 6.0;
+
+            return Padding(
+              padding: EdgeInsets.all(padding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Container(
+                      width: dateBadgeSize,
+                      height: dateBadgeSize,
+                      alignment: Alignment.center,
+                      padding: isToday
+                          ? EdgeInsets.zero
+                          : const EdgeInsets.symmetric(horizontal: 1),
+                      decoration: isToday
+                          ? const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            )
+                          : null,
+                      child: Text(
+                        '${date.day}',
+                        style: TextStyle(
+                          color: isToday
+                              ? const Color(0xFF0A7A76)
+                              : isPastDate
+                                  ? const Color(0xFFA9B7B8)
+                                  : isCurrentMonth
+                                      ? const Color(0xFF223234)
+                                      : const Color(0xFFA6B3B4),
+                          fontSize: dateFontSize,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: gap),
+                  if (hasPlan)
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: tight ? 4 : 5,
+                          vertical: tight ? 3 : 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0A7A76),
+                          borderRadius: BorderRadius.circular(tight ? 6 : 8),
+                        ),
+                        child: Text(
+                          label ?? plannedOutfitName!,
+                          maxLines: tight ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
                             color: Colors.white,
-                            shape: BoxShape.circle,
-                          )
-                        : null,
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                        color: isToday
-                            ? const Color(0xFF0A7A76)
-                            : isPastDate
-                                ? const Color(0xFFA9B7B8)
-                                : isCurrentMonth
-                                    ? const Color(0xFF223234)
-                                    : const Color(0xFFA6B3B4),
-                        fontSize: isToday ? 12 : 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-              if (hasPlan)
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0A7A76),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      label ?? plannedOutfitName!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomLeft,
-                    child: isToday
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.22),
-                              ),
-                            ),
-                            child: const Text(
-                              'TODAY',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            canOpen ? Icons.add_rounded : Icons.remove_rounded,
-                            size: 14,
-                            color: isPastDate
-                                ? const Color(0xFFC4CFD0)
-                                : const Color(0xFFA9B7B8),
+                            fontSize: tight ? 7 : 8,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
                           ),
-                  ),
-                ),
-            ],
-          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: isToday
+                            ? Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: tagHorizontal,
+                                  vertical: tagVertical,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Text(
+                                  'TODAY',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: tight ? 6.5 : 8,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: tight ? 0.3 : 0.6,
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                canOpen ? Icons.add_rounded : Icons.remove_rounded,
+                                size: markerIconSize,
+                                color: isPastDate
+                                    ? const Color(0xFFC4CFD0)
+                                    : const Color(0xFFA9B7B8),
+                              ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
