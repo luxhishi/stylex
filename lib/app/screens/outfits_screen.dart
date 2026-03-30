@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1327,48 +1328,67 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          const Row(
-                            children: [
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Sun')),
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Mon')),
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Tue')),
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Wed')),
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Thu')),
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Fri')),
-                              Expanded(child: _PlannerWeekdayLabel(label: 'Sat')),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          GridView.builder(
-                            itemCount: _calendarDaysForMonth(_plannerMonth).length,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 7,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 0.82,
+                            const SizedBox(height: 6),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final crossAxisSpacing =
+                                    constraints.maxWidth < 360 ? 6.0 : 8.0;
+                                final cellWidth =
+                                    (constraints.maxWidth - (crossAxisSpacing * 6)) / 7;
+                                final cellHeight = math.max(
+                                  44.0,
+                                  math.min(58.0, cellWidth * 0.96),
+                                );
+
+                                return Column(
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Sun')),
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Mon')),
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Tue')),
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Wed')),
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Thu')),
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Fri')),
+                                        Expanded(child: _PlannerWeekdayLabel(label: 'Sat')),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    GridView.builder(
+                                      itemCount: _calendarDaysForMonth(_plannerMonth).length,
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 7,
+                                        crossAxisSpacing: crossAxisSpacing,
+                                        mainAxisSpacing: crossAxisSpacing,
+                                        mainAxisExtent: cellHeight,
+                                      ),
+                                      itemBuilder: (context, index) {
+                                        final date =
+                                            _calendarDaysForMonth(_plannerMonth)[index];
+                                        final now = DateTime.now();
+                                        final todayDate =
+                                            DateTime(now.year, now.month, now.day);
+                                        final selectedDate =
+                                            DateTime(date.year, date.month, date.day);
+                                        final plannedEvent = _plannedEventForDate(date);
+                                        final plannedOutfit = _plannedOutfitForDate(date);
+                                        return _PlannerDayCard(
+                                          date: date,
+                                          currentMonth: _plannerMonth,
+                                          eventTitle: plannedEvent?.eventTitle,
+                                          plannedOutfitName: plannedOutfit?.name,
+                                          isEditable: !selectedDate.isBefore(todayDate),
+                                          onTap: () => _showPlannerDaySheet(date),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
-                            itemBuilder: (context, index) {
-                              final date = _calendarDaysForMonth(_plannerMonth)[index];
-                              final now = DateTime.now();
-                              final todayDate = DateTime(now.year, now.month, now.day);
-                              final selectedDate =
-                                  DateTime(date.year, date.month, date.day);
-                              final plannedEvent = _plannedEventForDate(date);
-                              final plannedOutfit = _plannedOutfitForDate(date);
-                              return _PlannerDayCard(
-                                date: date,
-                                currentMonth: _plannerMonth,
-                                eventTitle: plannedEvent?.eventTitle,
-                                plannedOutfitName: plannedOutfit?.name,
-                                isEditable: !selectedDate.isBefore(todayDate),
-                                onTap: () => _showPlannerDaySheet(date),
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ),
