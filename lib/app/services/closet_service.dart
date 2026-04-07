@@ -91,11 +91,14 @@ class ClosetService {
               (analysis?['primary_color'] as String?)?.trim().isNotEmpty == true
                   ? (analysis!['primary_color'] as String).trim()
                   : 'Neutral',
-          title: (item['custom_name'] as String?)?.trim().isNotEmpty == true
-              ? (item['custom_name'] as String).trim()
-              : (analysis?['garment_type'] as String?)?.trim().isNotEmpty == true
+          material:
+              (analysis?['material'] as String?)?.trim().isNotEmpty == true
+                  ? (analysis!['material'] as String).trim()
+                  : '',
+          title: _resolvedCustomName(item, analysis) ??
+              ((analysis?['garment_type'] as String?)?.trim().isNotEmpty == true
                   ? (analysis!['garment_type'] as String).trim()
-                  : 'Closet Piece',
+                  : 'Closet Piece'),
           subtitle: (analysis?['primary_color'] as String?)?.trim().isNotEmpty ==
                   true
               ? (analysis!['primary_color'] as String).trim().toUpperCase()
@@ -112,6 +115,82 @@ class ClosetService {
     required List<ClosetItemPreview> items,
     required bool includeOuterwear,
     int? seed,
+  }) {
+    final candidates = _buildOutfitCandidates(
+      items: items,
+      includeOuterwear: includeOuterwear,
+    );
+    if (candidates.isEmpty) return const [];
+
+    candidates.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
+      if (byScore != 0) return byScore;
+      return a.signature.compareTo(b.signature);
+    });
+
+    final index = (seed ?? 0) % candidates.length;
+    return candidates[index].items;
+  }
+
+  List<List<ClosetItemPreview>> buildStyleLookbookSuggestions({
+    required List<ClosetItemPreview> items,
+    required String styleSlug,
+    bool includeOuterwear = true,
+    int count = 5,
+  }) {
+    final candidates = _buildOutfitCandidates(
+      items: items,
+      includeOuterwear: includeOuterwear,
+    );
+    if (candidates.isEmpty) return const [];
+
+    final normalizedStyle = _normalizeStyleSlug(styleSlug);
+    final ranked = candidates
+        .map(
+          (candidate) => _OutfitCandidate(
+            items: candidate.items,
+            score: candidate.score + _styleAffinityScore(candidate.items, normalizedStyle),
+          ),
+        )
+        .toList()
+      ..sort((a, b) {
+        final byScore = b.score.compareTo(a.score);
+        if (byScore != 0) return byScore;
+        return a.signature.compareTo(b.signature);
+      });
+
+    final selected = <_OutfitCandidate>[];
+
+    for (final candidate in ranked) {
+      if (selected.any((existing) => existing.signature == candidate.signature)) {
+        continue;
+      }
+      final isDiverseEnough = selected.every(
+        (existing) => _sharedItemCount(existing.items, candidate.items) <
+            candidate.items.length,
+      );
+      if (isDiverseEnough) {
+        selected.add(candidate);
+      }
+      if (selected.length == count) break;
+    }
+
+    if (selected.length < count) {
+      for (final candidate in ranked) {
+        if (selected.any((existing) => existing.signature == candidate.signature)) {
+          continue;
+        }
+        selected.add(candidate);
+        if (selected.length == count) break;
+      }
+    }
+
+    return selected.map((candidate) => candidate.items).toList();
+  }
+
+  List<_OutfitCandidate> _buildOutfitCandidates({
+    required List<ClosetItemPreview> items,
+    required bool includeOuterwear,
   }) {
     if (items.isEmpty) return const [];
 
@@ -159,16 +238,7 @@ class ClosetService {
       }
     }
 
-    if (candidates.isEmpty) return const [];
-
-    candidates.sort((a, b) {
-      final byScore = b.score.compareTo(a.score);
-      if (byScore != 0) return byScore;
-      return a.signature.compareTo(b.signature);
-    });
-
-    final index = (seed ?? 0) % candidates.length;
-    return candidates[index].items;
+    return candidates;
   }
 
   List<ClosetItemPreview> _itemsForCategory(
@@ -218,6 +288,135 @@ class ClosetService {
     };
 
     return commonGoodPairs.contains('$a:$b') ? 2 : 1;
+  }
+
+  double _styleAffinityScore(List<ClosetItemPreview> items, String styleSlug) {
+    final palette = _preferredColorsForStyle(styleSlug);
+    final keywords = _preferredKeywordsForStyle(styleSlug);
+    var score = 0.0;
+
+    for (final item in items) {
+      final color = item.primaryColor.trim().toLowerCase();
+      final title = item.title.trim().toLowerCase();
+      final category = item.category.trim().toLowerCase();
+
+      if (palette.contains(color)) {
+        score += 2.3;
+      }
+      if (keywords.any(title.contains)) {
+        score += 1.8;
+      }
+
+      if (styleSlug == 'minimalist' &&
+          {'top', 'tops', 'bottom', 'bottoms', 'shoe'}.contains(category)) {
+        score += 0.5;
+      }
+      if (styleSlug == 'formal' &&
+          {'outerwear', 'shoe', 'bottom', 'bottoms'}.contains(category)) {
+        score += 0.7;
+      }
+      if (styleSlug == 'streetwear' &&
+          {'outerwear', 'shoe', 'top', 'tops'}.contains(category)) {
+        score += 0.7;
+      }
+      if (styleSlug == 'bohemian' &&
+          {'outerwear', 'top', 'tops'}.contains(category)) {
+        score += 0.6;
+      }
+      if (styleSlug == 'classic-vintage' &&
+          {'outerwear', 'shoe', 'top', 'tops'}.contains(category)) {
+        score += 0.65;
+      }
+    }
+
+    return score;
+  }
+
+  Set<String> _preferredColorsForStyle(String styleSlug) {
+    switch (styleSlug) {
+      case 'streetwear':
+        return {
+          'black',
+          'charcoal',
+          'gray',
+          'blue',
+          'green',
+          'white',
+        };
+      case 'formal':
+        return {
+          'black',
+          'charcoal',
+          'gray',
+          'navy',
+          'white',
+          'blue',
+        };
+      case 'bohemian':
+        return {
+          'tan',
+          'beige',
+          'brown',
+          'green',
+          'pink',
+          'ivory',
+          'cream',
+        };
+      case 'classic-vintage':
+        return {
+          'brown',
+          'tan',
+          'beige',
+          'green',
+          'navy',
+          'charcoal',
+          'ivory',
+        };
+      case 'minimalist':
+      default:
+        return {
+          'black',
+          'white',
+          'gray',
+          'charcoal',
+          'beige',
+          'tan',
+          'neutral',
+          'blue',
+          'ivory',
+          'cream',
+          'brown',
+        };
+    }
+  }
+
+  List<String> _preferredKeywordsForStyle(String styleSlug) {
+    switch (styleSlug) {
+      case 'streetwear':
+        return ['hoodie', 'sneaker', 'cargo', 'bomber', 'oversized', 'boot'];
+      case 'formal':
+        return ['blazer', 'trouser', 'loafer', 'shirt', 'dress', 'coat'];
+      case 'bohemian':
+        return ['linen', 'flow', 'knit', 'woven', 'boot', 'cardigan'];
+      case 'classic-vintage':
+        return ['vintage', 'heritage', 'coat', 'loafer', 'boot', 'polo'];
+      case 'minimalist':
+      default:
+        return ['tee', 'shirt', 'polo', 'coat', 'trouser', 'boot', 'sneaker'];
+    }
+  }
+
+  String _normalizeStyleSlug(String styleSlug) {
+    final trimmed = styleSlug.trim().toLowerCase();
+    return trimmed.isEmpty ? 'minimalist' : trimmed;
+  }
+
+  int _sharedItemCount(
+    List<ClosetItemPreview> first,
+    List<ClosetItemPreview> second,
+  ) {
+    final firstIds = first.map((item) => item.id).toSet();
+    return second.where((item) => firstIds.contains(item.id)).length;
   }
 
   Future<void> addClosetItem({
@@ -290,7 +489,8 @@ class ClosetService {
               'clothing_item_id': inserted['id'],
               'provider': analysis.provider,
               'model': analysis.model,
-              'raw_response': analysis.toJson(),
+              'raw_response':
+                  _analysisRawResponse(analysis, customName: customName),
               'confidence_score': analysis.confidence,
               'created_at': now,
             })
@@ -346,24 +546,374 @@ class ClosetService {
       throw const AuthException('Please log in again before renaming your item.');
     }
 
+    final normalizedName = newName.trim();
+    final now = DateTime.now().toUtc().toIso8601String();
+
     try {
       await _supabase
           .from('clothing_items')
           .update({
-            'custom_name': newName.trim(),
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
+            'custom_name': normalizedName,
+            'updated_at': now,
           })
           .eq('id', itemId)
           .eq('user_id', user.id);
     } on PostgrestException catch (error) {
-      if (_isMissingCustomNameColumn(error)) {
-        throw const PostgrestException(
-          message:
-              'Custom clothing names are not enabled yet. Run the `20260327_clothing_custom_name.sql` migration first.',
-        );
-      }
-      rethrow;
+      if (!_isMissingCustomNameColumn(error)) rethrow;
+      await _supabase
+          .from('clothing_items')
+          .update({
+            'updated_at': now,
+          })
+          .eq('id', itemId)
+          .eq('user_id', user.id);
     }
+
+    await _persistCustomNameFallback(
+      itemId: itemId,
+      customName: normalizedName,
+      now: now,
+    );
+  }
+
+  Future<void> updateClosetItem({
+    required String itemId,
+    required String newName,
+    required String category,
+    required String primaryColor,
+    required String material,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw const AuthException('Please log in again before editing your item.');
+    }
+
+    final normalizedName = newName.trim();
+    final normalizedCategory = category.trim();
+    final normalizedColor = primaryColor.trim();
+    final normalizedMaterial = material.trim();
+    final now = DateTime.now().toUtc().toIso8601String();
+    var customNamePersistedInColumn = true;
+
+    try {
+      await _supabase
+          .from('clothing_items')
+          .update({
+            'custom_name': normalizedName,
+            'updated_at': now,
+          })
+          .eq('id', itemId)
+          .eq('user_id', user.id);
+    } on PostgrestException catch (error) {
+      if (!_isMissingCustomNameColumn(error)) rethrow;
+      customNamePersistedInColumn = false;
+      await _supabase
+          .from('clothing_items')
+          .update({
+            'updated_at': now,
+          })
+          .eq('id', itemId)
+          .eq('user_id', user.id);
+    }
+
+    final updatedAnalysis = ClosetAnalysisResult(
+      category: normalizedCategory,
+      garmentType: normalizedCategory,
+      primaryColor: normalizedColor,
+      material: normalizedMaterial,
+      tags: _updatedTagsForType(
+        const [],
+        normalizedCategory,
+      ),
+      confidence: 1,
+      provider: 'manual-edit',
+      model: 'manual',
+    );
+
+    try {
+      final existingAnalysis = await _supabase
+          .from('clothing_ai_analyses')
+          .select('id, provider, model, confidence_score, raw_response')
+          .eq('clothing_item_id', itemId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (existingAnalysis == null) {
+        final insertedAnalysis = await _supabase
+            .from('clothing_ai_analyses')
+            .insert({
+              'clothing_item_id': itemId,
+              'provider': updatedAnalysis.provider,
+              'model': updatedAnalysis.model,
+              'raw_response': _analysisRawResponse(
+                updatedAnalysis,
+                customName: normalizedName,
+              ),
+              'confidence_score': updatedAnalysis.confidence,
+              'created_at': now,
+            })
+            .select('id')
+            .single();
+
+        await _syncPredictionsForAnalysis(
+          analysisId: insertedAnalysis['id'] as String,
+          analysis: updatedAnalysis,
+        );
+        return;
+      }
+
+      final existingRaw = Map<String, dynamic>.from(
+        existingAnalysis['raw_response'] as Map<String, dynamic>? ?? const {},
+      );
+      final mergedAnalysis = ClosetAnalysisResult(
+        category: normalizedCategory,
+        garmentType: normalizedCategory,
+        primaryColor: normalizedColor,
+        material: normalizedMaterial,
+        tags: _updatedTagsForType(
+          (existingRaw['tags'] as List<dynamic>? ?? const [])
+              .map((tag) => tag.toString())
+              .toList(),
+          normalizedCategory,
+        ),
+        confidence:
+            (existingAnalysis['confidence_score'] as num?)?.toDouble() ?? 1,
+        provider: (existingAnalysis['provider'] as String?)?.trim().isNotEmpty ==
+                true
+            ? (existingAnalysis['provider'] as String).trim()
+            : updatedAnalysis.provider,
+        model: (existingAnalysis['model'] as String?)?.trim().isNotEmpty == true
+            ? (existingAnalysis['model'] as String).trim()
+            : updatedAnalysis.model,
+      );
+
+      await _supabase
+          .from('clothing_ai_analyses')
+          .update({
+            'raw_response': {
+              ...existingRaw,
+              ..._analysisRawResponse(
+                mergedAnalysis,
+                customName:
+                    customNamePersistedInColumn ? normalizedName : normalizedName,
+              ),
+            },
+          })
+          .eq('id', existingAnalysis['id'] as String);
+
+      await _syncPredictionsForAnalysis(
+        analysisId: existingAnalysis['id'] as String,
+        analysis: mergedAnalysis,
+      );
+    } on PostgrestException {
+      // Keep manual edits working for the main clothing record even if optional AI tables are unavailable.
+    }
+  }
+
+  Future<void> _persistCustomNameFallback({
+    required String itemId,
+    required String customName,
+    required String now,
+  }) async {
+    try {
+      final existingAnalysis = await _supabase
+          .from('clothing_ai_analyses')
+          .select('id, raw_response')
+          .eq('clothing_item_id', itemId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (existingAnalysis == null) {
+        await _supabase.from('clothing_ai_analyses').insert({
+          'clothing_item_id': itemId,
+          'provider': 'manual-edit',
+          'model': 'manual',
+          'raw_response': {
+            'custom_name': customName,
+          },
+          'confidence_score': 1,
+          'created_at': now,
+        });
+        return;
+      }
+
+      final existingRaw = Map<String, dynamic>.from(
+        existingAnalysis['raw_response'] as Map<String, dynamic>? ?? const {},
+      );
+      await _supabase
+          .from('clothing_ai_analyses')
+          .update({
+            'raw_response': {
+              ...existingRaw,
+              'custom_name': customName,
+            },
+          })
+          .eq('id', existingAnalysis['id'] as String);
+    } on PostgrestException {
+      // Keep rename/edit working even if AI analysis tables are unavailable.
+    }
+  }
+
+  Map<String, dynamic> _analysisRawResponse(
+    ClosetAnalysisResult analysis, {
+    String? customName,
+  }) {
+    return {
+      ...analysis.toJson(),
+      if (customName != null && customName.trim().isNotEmpty)
+        'custom_name': customName.trim(),
+    };
+  }
+
+  String? _resolvedCustomName(
+    Map<String, dynamic> item,
+    Map<String, dynamic>? analysis,
+  ) {
+    final columnName = (item['custom_name'] as String?)?.trim();
+    if (columnName != null && columnName.isNotEmpty) {
+      return columnName;
+    }
+
+    final analysisName = (analysis?['custom_name'] as String?)?.trim();
+    if (analysisName != null && analysisName.isNotEmpty) {
+      return analysisName;
+    }
+
+    return null;
+  }
+
+  Future<void> deleteClosetItem({required String itemId}) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw const AuthException('Please log in again before deleting your item.');
+    }
+
+    String? storagePath;
+    try {
+      final itemResponse = await _supabase
+          .from('clothing_items')
+          .select('image_url')
+          .eq('id', itemId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+      storagePath = _storagePathFromValue(
+        itemResponse?['image_url'] as String? ?? '',
+      );
+    } on PostgrestException {
+      // Continue deleting related rows even if we cannot fetch the storage path.
+    }
+
+    try {
+      final analyses = await _supabase
+          .from('clothing_ai_analyses')
+          .select('id')
+          .eq('clothing_item_id', itemId);
+      final analysisIds = analyses
+          .map((analysis) => analysis['id'] as String?)
+          .whereType<String>()
+          .toList();
+      if (analysisIds.isNotEmpty) {
+        await _supabase
+            .from('clothing_ai_predictions')
+            .delete()
+            .inFilter('analysis_id', analysisIds);
+      }
+      await _supabase
+          .from('clothing_ai_analyses')
+          .delete()
+          .eq('clothing_item_id', itemId);
+    } on PostgrestException {
+      // These optional AI tables may not exist yet.
+    }
+
+    try {
+      await _supabase
+          .from('clothing_item_images')
+          .delete()
+          .eq('clothing_item_id', itemId);
+    } on PostgrestException {
+      // Keep deletion working even if the images table is unavailable.
+    }
+
+    await _supabase
+        .from('clothing_items')
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', user.id);
+
+    if (storagePath != null && storagePath.isNotEmpty) {
+      try {
+        await _supabase.storage.from(storageBucket).remove([storagePath]);
+      } on StorageException {
+        // The database delete should still succeed even if the storage file was already missing.
+      }
+    }
+  }
+
+  Future<void> _syncPredictionsForAnalysis({
+    required String analysisId,
+    required ClosetAnalysisResult analysis,
+  }) async {
+    try {
+      await _supabase
+          .from('clothing_ai_predictions')
+          .delete()
+          .eq('analysis_id', analysisId);
+
+      await _supabase.from('clothing_ai_predictions').insert([
+        {
+          'analysis_id': analysisId,
+          'field_name': 'category',
+          'predicted_slug': analysis.category.toLowerCase().replaceAll(' ', '-'),
+          'predicted_label': analysis.category,
+          'confidence_score': analysis.confidence,
+        },
+        {
+          'analysis_id': analysisId,
+          'field_name': 'type',
+          'predicted_slug':
+              analysis.garmentType.toLowerCase().replaceAll(' ', '-'),
+          'predicted_label': analysis.garmentType,
+          'confidence_score': analysis.confidence,
+        },
+        {
+          'analysis_id': analysisId,
+          'field_name': 'primary_color',
+          'predicted_slug':
+              analysis.primaryColor.toLowerCase().replaceAll(' ', '-'),
+          'predicted_label': analysis.primaryColor,
+          'confidence_score': analysis.confidence,
+        },
+        {
+          'analysis_id': analysisId,
+          'field_name': 'material',
+          'predicted_slug': analysis.material.toLowerCase().replaceAll(' ', '-'),
+          'predicted_label': analysis.material,
+          'confidence_score': analysis.confidence,
+        },
+      ]);
+    } on PostgrestException {
+      // Prediction tables are optional for the current app experience.
+    }
+  }
+
+  List<String> _updatedTagsForType(List<String> tags, String type) {
+    const typeOptions = ['top', 'bottom', 'shoe', 'outerwear'];
+    final typeTag = type.trim().toLowerCase();
+    final slugTag = typeTag.replaceAll(' ', '-');
+    final filtered = tags.where((tag) {
+      final normalized = tag.trim().toLowerCase();
+      return !typeOptions.contains(normalized) &&
+          !typeOptions.map((option) => option.replaceAll(' ', '-')).contains(normalized);
+    }).toList();
+
+    return [
+      typeTag,
+      if (slugTag != typeTag) slugTag,
+      ...filtered,
+    ];
   }
 
   String _extensionForPath(String path) {

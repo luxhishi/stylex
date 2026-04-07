@@ -18,6 +18,11 @@ class StylexBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    if (keyboardVisible) {
+      return const SizedBox.shrink();
+    }
+
     final items = const [
       _NavItemData(Icons.home_rounded, 'HOME', AppTab.home),
       _NavItemData(Icons.checkroom_outlined, 'CLOSET', AppTab.closet),

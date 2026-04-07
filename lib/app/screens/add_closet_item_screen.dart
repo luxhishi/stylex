@@ -26,14 +26,20 @@ class AddClosetItemScreen extends StatefulWidget {
 }
 
 class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
+  static const _typeOptions = ['Top', 'Bottom', 'Shoe', 'Outerwear'];
+
   late final AddClosetItemViewModel _viewModel;
   late final TextEditingController _nameController;
+  late String _selectedGarmentType;
 
   @override
   void initState() {
     super.initState();
     _viewModel = AddClosetItemViewModel();
     _nameController = TextEditingController(text: widget.analysis.garmentType);
+    _selectedGarmentType = _typeOptions.contains(widget.analysis.garmentType)
+        ? widget.analysis.garmentType
+        : 'Top';
   }
 
   @override
@@ -56,7 +62,7 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
       imagePath: widget.imagePath,
       source: widget.sourceValue,
       customName: customName,
-      analysis: widget.analysis,
+      analysis: _effectiveAnalysis,
     );
 
     if (!mounted) return;
@@ -70,10 +76,63 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
     Navigator.of(context).pop(true);
   }
 
+  ClosetAnalysisResult get _effectiveAnalysis {
+    return widget.analysis.copyWith(
+      category: _selectedGarmentType,
+      garmentType: _selectedGarmentType,
+      tags: _updatedTagsForType(widget.analysis.tags, _selectedGarmentType),
+    );
+  }
+
+  List<String> _updatedTagsForType(List<String> tags, String type) {
+    final typeTag = type.toLowerCase();
+    final slugTag = typeTag.replaceAll(' ', '-');
+    final filtered = tags
+        .where((tag) {
+          final normalized = tag.trim().toLowerCase();
+          return !_typeOptions
+              .map((option) => option.toLowerCase())
+              .contains(normalized) &&
+              !_typeOptions
+                  .map((option) => option.toLowerCase().replaceAll(' ', '-'))
+                  .contains(normalized);
+        })
+        .toList();
+
+    return [
+      typeTag,
+      if (slugTag != typeTag) slugTag,
+      ...filtered,
+    ];
+  }
+
+  void _updateGarmentType(String? value) {
+    if (value == null || value == _selectedGarmentType) return;
+
+    final shouldSyncName =
+        _nameController.text.trim().isEmpty ||
+        _nameController.text.trim() == _selectedGarmentType ||
+        _nameController.text.trim() == widget.analysis.garmentType;
+
+    setState(() {
+      _selectedGarmentType = value;
+      if (shouldSyncName) {
+        _nameController.text = value;
+        _nameController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _nameController.text.length),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final usesLocalVision = widget.analysis.provider == 'local-image-analyzer';
+    final analysis = _effectiveAnalysis;
+    final usesLocalVision = analysis.provider == 'local-image-analyzer';
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardVisible = keyboardInset > 0;
+    final imageHeight = keyboardVisible ? 280.0 : 520.0;
 
     return AnimatedBuilder(
       animation: _viewModel,
@@ -139,7 +198,14 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                       ),
                       Expanded(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(18, 10, 18, 160),
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: EdgeInsets.fromLTRB(
+                            18,
+                            10,
+                            18,
+                            keyboardVisible ? keyboardInset + 28 : 160,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -246,8 +312,55 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 ),
                               ),
                               const SizedBox(height: 18),
-                              Container(
-                                height: 520,
+                              Text(
+                                'Clothing Type',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF203032),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<String>(
+                                key: ValueKey(_selectedGarmentType),
+                                initialValue: _selectedGarmentType,
+                                items: _typeOptions
+                                    .map(
+                                      (type) => DropdownMenuItem<String>(
+                                        value: type,
+                                        child: Text(type),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: _viewModel.isSaving
+                                    ? null
+                                    : _updateGarmentType,
+                                decoration: InputDecoration(
+                                  hintText: 'Select clothing type',
+                                  helperText:
+                                      'Change this if the AI tagged the piece incorrectly.',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF4F8F7),
+                                  prefixIcon: const Icon(
+                                    Icons.checkroom_outlined,
+                                    color: Color(0xFF0A7A76),
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Color(0xFF0A7A76),
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                                dropdownColor: Colors.white,
+                              ),
+                              const SizedBox(height: 18),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                curve: Curves.easeOut,
+                                height: imageHeight,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(26),
@@ -291,26 +404,26 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                           children: [
                                             _MetaChip(
                                               label: 'Color:',
-                                              value: widget.analysis.primaryColor,
+                                              value: analysis.primaryColor,
                                             ),
                                             _MetaChip(
                                               label: 'Type:',
-                                              value: widget.analysis.garmentType,
+                                              value: analysis.garmentType,
                                             ),
                                             _MetaChip(
                                               label: 'Category:',
-                                              value: widget.analysis.category,
+                                              value: analysis.category,
                                             ),
                                             _MetaChip(
                                               label: 'Material:',
-                                              value: widget.analysis.material,
+                                              value: analysis.material,
                                             ),
                                             _MetaChip(
                                               label: 'Confidence:',
                                               value:
-                                                  '${(widget.analysis.confidence * 100).round()}%',
+                                                  '${(analysis.confidence * 100).round()}%',
                                             ),
-                                            ...widget.analysis.tags.map(
+                                            ...analysis.tags.map(
                                               (tag) => _TagChip(tag: tag),
                                             ),
                                           ],
@@ -320,58 +433,95 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                   ),
                                 ),
                               ),
+                              if (keyboardVisible) ...[
+                                const SizedBox(height: 18),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: _viewModel.isSaving ? null : _saveItem,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0A7A76),
+                                      foregroundColor: Colors.white,
+                                      padding:
+                                          const EdgeInsets.symmetric(vertical: 18),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                    ),
+                                    icon: _viewModel.isSaving
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.cloud_upload_outlined,
+                                            size: 18,
+                                          ),
+                                    label: Text(
+                                      _viewModel.isSaving
+                                          ? 'Saving To Closet'
+                                          : 'Save To Closet',
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
                       ),
                     ],
                   ),
-                  Positioned(
-                    left: 14,
-                    right: 14,
-                    bottom: 14,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _viewModel.isSaving ? null : _saveItem,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF0A7A76),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(999),
+                  if (!keyboardVisible)
+                    Positioned(
+                      left: 14,
+                      right: 14,
+                      bottom: 14,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: _viewModel.isSaving ? null : _saveItem,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF0A7A76),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              icon: _viewModel.isSaving
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.cloud_upload_outlined, size: 18),
+                              label: Text(
+                                _viewModel.isSaving
+                                    ? 'Saving To Closet'
+                                    : 'Save To Closet',
                               ),
                             ),
-                            icon: _viewModel.isSaving
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.cloud_upload_outlined, size: 18),
-                            label: Text(
-                              _viewModel.isSaving
-                                  ? 'Saving To Closet'
-                                  : 'Save To Closet',
+                          ),
+                          const SizedBox(height: 12),
+                          IgnorePointer(
+                            ignoring: true,
+                            child: const StylexBottomNav(
+                              selectedTab: AppTab.closet,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        IgnorePointer(
-                          ignoring: true,
-                          child: const StylexBottomNav(
-                            selectedTab: AppTab.closet,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

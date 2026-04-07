@@ -19,6 +19,28 @@ class ClosetAnalysisResult {
   final String provider;
   final String model;
 
+  ClosetAnalysisResult copyWith({
+    String? category,
+    String? garmentType,
+    String? primaryColor,
+    String? material,
+    List<String>? tags,
+    double? confidence,
+    String? provider,
+    String? model,
+  }) {
+    return ClosetAnalysisResult(
+      category: category ?? this.category,
+      garmentType: garmentType ?? this.garmentType,
+      primaryColor: primaryColor ?? this.primaryColor,
+      material: material ?? this.material,
+      tags: tags ?? this.tags,
+      confidence: confidence ?? this.confidence,
+      provider: provider ?? this.provider,
+      model: model ?? this.model,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'category': category,

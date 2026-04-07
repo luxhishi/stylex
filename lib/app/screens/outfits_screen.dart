@@ -24,6 +24,19 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   static const _savedOutfitsKeyPrefix = 'stylex_saved_outfits_v2';
   static const _plannedOutfitsKeyPrefix = 'stylex_planned_outfits_v1';
   static const _filters = ['All Items', 'Tops', 'Bottoms', 'Shoes', 'Layers'];
+  static const _outfitTagSuggestions = [
+    'Casual',
+    'Smart Casual',
+    'Formal',
+    'Minimalist',
+    'Streetwear',
+    'Work',
+    'Weekend',
+    'Travel',
+    'Date Night',
+    'Classic Vintage',
+    'Bohemian',
+  ];
 
   final ClosetService _closetService = ClosetService();
   List<ClosetItemPreview> _closetItems = const [];
@@ -33,6 +46,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   ClosetItemPreview? _selectedShoe;
   ClosetItemPreview? _selectedLayer;
   var _selectedFilter = 'All Items';
+  var _selectedSavedLookTag = 'All';
   var _isLoading = true;
   var _isSaving = false;
   late DateTime _plannerMonth;
@@ -102,7 +116,12 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
         .toList();
 
     if (!mounted) return;
-    setState(() => _savedOutfits = parsed);
+    setState(() {
+      _savedOutfits = _sortSavedOutfits(parsed);
+      if (!_savedLookTags.contains(_selectedSavedLookTag)) {
+        _selectedSavedLookTag = 'All';
+      }
+    });
   }
 
   Future<void> _persistSavedOutfits() async {
@@ -111,6 +130,18 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       _savedOutfitsKey,
       _savedOutfits.map((outfit) => jsonEncode(outfit.toJson())).toList(),
     );
+    HomeScreen.clearSessionCache();
+  }
+
+  List<_SavedOutfit> _sortSavedOutfits(Iterable<_SavedOutfit> outfits) {
+    final sorted = outfits.toList();
+    sorted.sort((a, b) {
+      if (a.isFavorite != b.isFavorite) {
+        return a.isFavorite ? -1 : 1;
+      }
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return sorted;
   }
 
   Future<void> _loadPlannedOutfits() async {
@@ -152,6 +183,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
         ),
       ),
     );
+    HomeScreen.clearSessionCache();
   }
 
   ClosetItemPreview? _retainIfPresent(
@@ -201,6 +233,43 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
         _selectedShoe,
         _selectedLayer,
       ].whereType<ClosetItemPreview>().toList();
+
+  List<String> get _savedLookTags {
+    final tags = <String>[];
+    final seen = <String>{};
+    for (final outfit in _savedOutfits) {
+      for (final tag in outfit.tags) {
+        final key = tag.toLowerCase();
+        if (seen.add(key)) {
+          tags.add(tag);
+        }
+      }
+    }
+    tags.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return [
+      'All',
+      if (_savedOutfits.any((outfit) => outfit.isFavorite)) 'Favorites',
+      ...tags,
+    ];
+  }
+
+  List<_SavedOutfit> get _visibleSavedOutfits {
+    if (_selectedSavedLookTag == 'All') return _savedOutfits;
+    if (_selectedSavedLookTag == 'Favorites') {
+      return _savedOutfits.where((outfit) => outfit.isFavorite).toList();
+    }
+    final selectedKey = _selectedSavedLookTag.toLowerCase();
+    return _savedOutfits.where((outfit) {
+      return outfit.tags.any((tag) => tag.toLowerCase() == selectedKey);
+    }).toList();
+  }
+
+  String get _savedLooksEmptyMessage {
+    if (_selectedSavedLookTag == 'Favorites') {
+      return 'You have not favorited any looks yet.';
+    }
+    return 'No saved looks match this tag yet.';
+  }
 
   Future<void> _generateOutfit() async {
     if (_closetItems.isEmpty) {
@@ -323,16 +392,24 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       return;
     }
 
+    final draft = await _showSaveOutfitSheet(pieces);
+    if (draft == null) return;
+
     setState(() => _isSaving = true);
 
     try {
       final outfit = _SavedOutfit(
-        name: 'Look ${_savedOutfits.length + 1}',
+        name: draft.name,
         itemIds: pieces.map((item) => item.id).toList(),
+        tags: draft.tags,
+        isFavorite: false,
         createdAt: DateTime.now().toIso8601String(),
       );
       setState(() {
-        _savedOutfits = [outfit, ..._savedOutfits];
+        _savedOutfits = _sortSavedOutfits([outfit, ..._savedOutfits]);
+        if (!_savedLookTags.contains(_selectedSavedLookTag)) {
+          _selectedSavedLookTag = 'All';
+        }
       });
       await _persistSavedOutfits();
 
@@ -373,16 +450,41 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     _applyOutfitItems(items);
   }
 
-  Future<void> _renameSavedOutfit(_SavedOutfit outfit, String newName) async {
+  Future<void> _updateSavedOutfit(
+    _SavedOutfit outfit, {
+    required String newName,
+    required List<String> newTags,
+  }) async {
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return;
 
+    final normalizedTags = _normalizeTags(newTags);
     setState(() {
-      _savedOutfits = _savedOutfits
-          .map((saved) => saved.createdAt == outfit.createdAt
-              ? saved.copyWith(name: trimmed)
-              : saved)
-          .toList();
+      _savedOutfits = _sortSavedOutfits(
+        _savedOutfits.map((saved) => saved.createdAt == outfit.createdAt
+            ? saved.copyWith(name: trimmed, tags: normalizedTags)
+            : saved),
+      );
+      if (!_savedLookTags.contains(_selectedSavedLookTag)) {
+        _selectedSavedLookTag = 'All';
+      }
+    });
+    await _persistSavedOutfits();
+  }
+
+  Future<void> _setSavedOutfitFavorite(
+    _SavedOutfit outfit, {
+    required bool isFavorite,
+  }) async {
+    setState(() {
+      _savedOutfits = _sortSavedOutfits(
+        _savedOutfits.map((saved) => saved.createdAt == outfit.createdAt
+            ? saved.copyWith(isFavorite: isFavorite)
+            : saved),
+      );
+      if (!_savedLookTags.contains(_selectedSavedLookTag)) {
+        _selectedSavedLookTag = 'All';
+      }
     });
     await _persistSavedOutfits();
   }
@@ -464,6 +566,269 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       ..remove(key);
     setState(() => _plannedEventsByDate = updated);
     await _persistPlannedOutfits();
+  }
+
+  Future<_SavedOutfitDraft?> _showSaveOutfitSheet(
+    List<ClosetItemPreview> pieces,
+  ) async {
+    final controller = TextEditingController(
+      text: 'Look ${_savedOutfits.length + 1}',
+    );
+    var selectedTags = _suggestTagsForOutfit(pieces);
+
+    final result = await showModalBottomSheet<_SavedOutfitDraft>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final media = MediaQuery.of(context);
+        final keyboardInset = media.viewInsets.bottom;
+        final availableHeight = math.max(
+          0.0,
+          media.size.height - keyboardInset - media.padding.top - 28,
+        );
+        final maxHeight = math.min(media.size.height * 0.82, availableHeight);
+        final previewItems = pieces.take(4).toList();
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  keyboardInset > 0 ? 20 : 60,
+                  14,
+                  keyboardInset + 14,
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxHeight),
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 42,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD8E5E1),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Save Outfit',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF203032),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Add a name and a few tags so you can find this look faster later.',
+                            style: TextStyle(
+                              color: Color(0xFF708082),
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: controller,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: InputDecoration(
+                              labelText: 'Look name',
+                              filled: true,
+                              fillColor: const Color(0xFFF3F8F7),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            height: 82,
+                            child: Row(
+                              children: previewItems.map((item) {
+                                return Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      right: item == previewItems.last ? 0 : 8,
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: Image.network(
+                                        item.imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: Color(0xFFEAF2F0),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Tags',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF203032),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _outfitTagSuggestions.map((tag) {
+                              final selected = selectedTags.contains(tag);
+                              return FilterChip(
+                                label: Text(tag),
+                                selected: selected,
+                                showCheckmark: false,
+                                onSelected: (_) {
+                                  setModalState(() {
+                                    if (selected) {
+                                      selectedTags =
+                                          selectedTags.where((item) => item != tag).toList();
+                                    } else {
+                                      selectedTags = _normalizeTags([...selectedTags, tag]);
+                                    }
+                                  });
+                                },
+                                backgroundColor: const Color(0xFFF2F8F7),
+                                selectedColor: const Color(0xFFDFF4EF),
+                                side: BorderSide(
+                                  color: selected
+                                      ? const Color(0xFF0A7A76)
+                                      : const Color(0xFFDCE7E4),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: selected
+                                      ? const Color(0xFF0A7A76)
+                                      : const Color(0xFF6B7B7D),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: () {
+                                final name = controller.text.trim();
+                                if (name.isEmpty) return;
+                                FocusScope.of(context).unfocus();
+                                Navigator.of(context).pop(
+                                  _SavedOutfitDraft(
+                                    name: name,
+                                    tags: _normalizeTags(selectedTags),
+                                  ),
+                                );
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF0A7A76),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              child: const Text('Save Look'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
+  }
+
+  List<String> _suggestTagsForOutfit(List<ClosetItemPreview> items) {
+    final titles = items.map((item) => item.title.toLowerCase()).join(' ');
+    final colors = items.map((item) => item.primaryColor.toLowerCase()).toList();
+    const neutralColors = {
+      'black',
+      'white',
+      'gray',
+      'grey',
+      'charcoal',
+      'beige',
+      'tan',
+      'neutral',
+      'ivory',
+      'cream',
+      'brown',
+      'blue',
+      'navy',
+    };
+
+    final tags = <String>[];
+    if (RegExp(r'blazer|trouser|loafer|coat|shirt').hasMatch(titles)) {
+      tags.add('Formal');
+    } else {
+      tags.add('Casual');
+    }
+    if (items.isNotEmpty &&
+        colors.every((color) => neutralColors.contains(color))) {
+      tags.add('Minimalist');
+    }
+    if (RegExp(r'hoodie|sneaker|cargo|bomber|boot').hasMatch(titles)) {
+      tags.add('Streetwear');
+    }
+    return _normalizeTags(tags);
+  }
+
+  List<String> _normalizeTags(Iterable<String> tags) {
+    final normalized = <String>[];
+    final seen = <String>{};
+
+    for (final rawTag in tags) {
+      final trimmed = rawTag.trim();
+      if (trimmed.isEmpty) continue;
+      final formatted = trimmed
+          .split(RegExp(r'\s+'))
+          .map((word) {
+            if (word.isEmpty) return word;
+            return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+          })
+          .join(' ');
+      final key = formatted.toLowerCase();
+      if (seen.add(key)) {
+        normalized.add(formatted);
+      }
+    }
+
+    return normalized;
   }
 
   Future<void> _pickDateForOutfit(_SavedOutfit outfit) async {
@@ -572,6 +937,8 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     }
 
     final controller = TextEditingController(text: outfit.name);
+    var selectedTags = List<String>.from(outfit.tags);
+    var isFavorite = outfit.isFavorite;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -579,141 +946,260 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         final theme = Theme.of(context);
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 14,
-            right: 14,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 14,
-            top: 60,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD8E5E1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
+        final media = MediaQuery.of(context);
+        final keyboardInset = media.viewInsets.bottom;
+        final availableHeight = math.max(
+          0.0,
+          media.size.height - keyboardInset - media.padding.top - 28,
+        );
+        final maxHeight = math.min(
+          media.size.height * 0.82,
+          availableHeight,
+        );
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 14,
+                  right: 14,
+                  bottom: keyboardInset + 14,
+                  top: keyboardInset > 0 ? 20 : 60,
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Saved Look Details',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF203032),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      labelText: 'Look name',
-                      filled: true,
-                      fillColor: const Color(0xFFF3F8F7),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 220,
-                    child: GridView.builder(
-                      itemCount: items.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.9,
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        return _SavedLookDetailCard(item: item);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.tonalIcon(
-                      onPressed: () async {
-                        Navigator.of(context).pop();
-                        await _pickDateForOutfit(outfit);
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFDFF4EF),
-                        foregroundColor: const Color(0xFF0A7A76),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                      icon: const Icon(Icons.calendar_month_rounded, size: 18),
-                      label: const Text('Save To Date'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final newName = controller.text;
-                            Navigator.of(context).pop();
-                            await _renameSavedOutfit(outfit, newName);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0A7A76),
-                            side: const BorderSide(color: Color(0xFFCFE4DE)),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxHeight),
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 42,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD8E5E1),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
                             ),
                           ),
-                          child: const Text('Rename'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () {
-                            _restoreSavedOutfit(outfit);
-                            Navigator.of(context).pop();
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0A7A76),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(999),
+                          const SizedBox(height: 16),
+                          Text(
+                            isFavorite
+                                ? 'Favorite Look'
+                                : 'Saved Look Details',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF203032),
                             ),
                           ),
-                          child: const Text('Use This Look'),
-                        ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                final nextValue = !isFavorite;
+                                setModalState(() => isFavorite = nextValue);
+                                await _setSavedOutfitFavorite(
+                                  outfit,
+                                  isFavorite: nextValue,
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isFavorite
+                                    ? const Color(0xFFD05D79)
+                                    : const Color(0xFF0A7A76),
+                                side: BorderSide(
+                                  color: isFavorite
+                                      ? const Color(0xFFF0CFD8)
+                                      : const Color(0xFFCFE4DE),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 13),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
+                                isFavorite
+                                    ? 'Favorited'
+                                    : 'Mark as Favorite',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: controller,
+                            decoration: InputDecoration(
+                              labelText: 'Look name',
+                              filled: true,
+                              fillColor: const Color(0xFFF3F8F7),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'Tags',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF203032),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _outfitTagSuggestions.map((tag) {
+                              final selected = selectedTags.contains(tag);
+                              return FilterChip(
+                                label: Text(tag),
+                                selected: selected,
+                                showCheckmark: false,
+                                onSelected: (_) {
+                                  setModalState(() {
+                                    if (selected) {
+                                      selectedTags = selectedTags
+                                          .where((item) => item != tag)
+                                          .toList();
+                                    } else {
+                                      selectedTags =
+                                          _normalizeTags([...selectedTags, tag]);
+                                    }
+                                  });
+                                },
+                                backgroundColor: const Color(0xFFF2F8F7),
+                                selectedColor: const Color(0xFFDFF4EF),
+                                side: BorderSide(
+                                  color: selected
+                                      ? const Color(0xFF0A7A76)
+                                      : const Color(0xFFDCE7E4),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: selected
+                                      ? const Color(0xFF0A7A76)
+                                      : const Color(0xFF6B7B7D),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 11,
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            height: 220,
+                            child: GridView.builder(
+                              itemCount: items.length,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 0.9,
+                              ),
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                return _SavedLookDetailCard(item: item);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.tonalIcon(
+                              onPressed: () async {
+                                Navigator.of(context).pop();
+                                await _pickDateForOutfit(outfit);
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFDFF4EF),
+                                foregroundColor: const Color(0xFF0A7A76),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                              icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                              label: const Text('Save To Date'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () async {
+                                    final newName = controller.text;
+                                    final newTags = List<String>.from(selectedTags);
+                                    Navigator.of(context).pop();
+                                    await _updateSavedOutfit(
+                                      outfit,
+                                      newName: newName,
+                                      newTags: newTags,
+                                    );
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0A7A76),
+                                    side: const BorderSide(color: Color(0xFFCFE4DE)),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                  ),
+                                  child: const Text('Save Changes'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () {
+                                    _restoreSavedOutfit(outfit);
+                                    Navigator.of(context).pop();
+                                  },
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0A7A76),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                  ),
+                                  child: const Text('Use This Look'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
+
+    controller.dispose();
   }
 
   void _handleTabSelection(AppTab tab) {
@@ -834,6 +1320,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                     ),
                     const SizedBox(height: 18),
                     _SoftPanel(
+                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1064,24 +1551,80 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            SizedBox(
-                              height: 116,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _savedOutfits.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(width: 12),
-                                itemBuilder: (context, index) {
-                                  final saved = _savedOutfits[index];
-                                  final items = _resolveSavedOutfitItems(saved);
-                                  return _SavedLookCard(
-                                    outfit: saved,
-                                    items: items,
-                                    onTap: () => _showSavedLookDetails(saved),
-                                  );
-                                },
+                            if (_savedLookTags.length > 1) ...[
+                              SizedBox(
+                                height: 34,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _savedLookTags.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 8),
+                                  itemBuilder: (context, index) {
+                                    final tag = _savedLookTags[index];
+                                    final selected = tag == _selectedSavedLookTag;
+                                    return ChoiceChip(
+                                      label: Text(tag),
+                                      selected: selected,
+                                      showCheckmark: false,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          _selectedSavedLookTag = tag;
+                                        });
+                                      },
+                                      labelStyle: TextStyle(
+                                        color: selected
+                                            ? Colors.white
+                                            : const Color(0xFF7C8D90),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                      backgroundColor: const Color(0xFFEAF3F1),
+                                      selectedColor: const Color(0xFF0A7A76),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(9),
+                                        side: BorderSide(
+                                          color: selected
+                                              ? const Color(0xFF0A7A76)
+                                              : const Color(0xFFDCE9E5),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 12),
+                            ],
+                            if (_visibleSavedOutfits.isEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                child: Text(
+                                  _savedLooksEmptyMessage,
+                                  style: const TextStyle(
+                                    color: Color(0xFF7D8D90),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              )
+                            else
+                              SizedBox(
+                                height: 132,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _visibleSavedOutfits.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 12),
+                                  itemBuilder: (context, index) {
+                                    final saved = _visibleSavedOutfits[index];
+                                    final items = _resolveSavedOutfitItems(saved);
+                                    return _SavedLookCard(
+                                      outfit: saved,
+                                      items: items,
+                                      onTap: () => _showSavedLookDetails(saved),
+                                    );
+                                  },
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -1109,9 +1652,16 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                     );
                                   });
                                 },
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 28,
+                                  height: 28,
+                                ),
                                 icon: const Icon(Icons.chevron_left_rounded),
                                 color: const Color(0xFF6E8082),
                               ),
+                              const SizedBox(width: 2),
                               Text(
                                 '${_monthLabel(_plannerMonth)} ${_plannerMonth.year}',
                                 style: theme.textTheme.titleSmall?.copyWith(
@@ -1119,6 +1669,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                   color: const Color(0xFF233234),
                                 ),
                               ),
+                              const SizedBox(width: 2),
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -1128,21 +1679,27 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                     );
                                   });
                                 },
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 28,
+                                  height: 28,
+                                ),
                                 icon: const Icon(Icons.chevron_right_rounded),
                                 color: const Color(0xFF6E8082),
                               ),
                             ],
                           ),
-                            const SizedBox(height: 6),
-                            LayoutBuilder(
+                          const SizedBox(height: 4),
+                          LayoutBuilder(
                               builder: (context, constraints) {
                                 final crossAxisSpacing =
-                                    constraints.maxWidth < 360 ? 6.0 : 8.0;
+                                    constraints.maxWidth < 360 ? 4.0 : 6.0;
                                 final cellWidth =
                                     (constraints.maxWidth - (crossAxisSpacing * 6)) / 7;
                                 final cellHeight = math.max(
-                                  44.0,
-                                  math.min(58.0, cellWidth * 0.96),
+                                  36.0,
+                                  math.min(48.0, cellWidth * 0.82),
                                 );
 
                                 return Column(
@@ -1158,7 +1715,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                         Expanded(child: _PlannerWeekdayLabel(label: 'Sat')),
                                       ],
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 4),
                                     GridView.builder(
                                       itemCount: _calendarDaysForMonth(_plannerMonth).length,
                                       shrinkWrap: true,
@@ -1307,9 +1864,13 @@ class _OutfitHeader extends StatelessWidget {
 }
 
 class _SoftPanel extends StatelessWidget {
-  const _SoftPanel({required this.child});
+  const _SoftPanel({
+    required this.child,
+    this.padding = const EdgeInsets.all(14),
+  });
 
   final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -1320,7 +1881,7 @@ class _SoftPanel extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE4ECEA)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: padding,
         child: child,
       ),
     );
@@ -1339,9 +1900,9 @@ class _PlannerWeekdayLabel extends StatelessWidget {
         label,
         style: const TextStyle(
           color: Color(0xFF97A6A8),
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.6,
+          letterSpacing: 0.45,
         ),
       ),
     );
@@ -1398,32 +1959,43 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final media = MediaQuery.of(context);
+    final keyboardInset = media.viewInsets.bottom;
+    final availableHeight = math.max(
+      0.0,
+      media.size.height - keyboardInset - media.padding.top - 28,
+    );
+    final maxHeight = math.min(
+      media.size.height * 0.82,
+      availableHeight,
+    );
     final selectedOutfit =
         _selectedOutfitId == null ? null : widget.resolveOutfit(_selectedOutfitId!);
     final selectedItems =
         selectedOutfit == null ? const <ClosetItemPreview>[] : widget.resolveItems(selectedOutfit);
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        14,
-        80,
-        14,
-        MediaQuery.of(context).viewInsets.bottom + 14,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          14,
+          keyboardInset > 0 ? 20 : 80,
+          14,
+          keyboardInset + 14,
         ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.82,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: maxHeight,
+            ),
+            child: ListView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.all(18),
               children: [
                 Center(
                   child: Container(
@@ -1578,25 +2150,23 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                     ),
                   )
                 else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: widget.savedOutfits.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final outfit = widget.savedOutfits[index];
-                        return _PlannerLookTile(
-                          outfit: outfit,
-                          selected: _selectedOutfitId == outfit.createdAt,
-                          onTap: () {
-                            setState(() {
-                              _selectedOutfitId = outfit.createdAt;
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
+                  ...List.generate(widget.savedOutfits.length, (index) {
+                    final outfit = widget.savedOutfits[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == widget.savedOutfits.length - 1 ? 0 : 10,
+                      ),
+                      child: _PlannerLookTile(
+                        outfit: outfit,
+                        selected: _selectedOutfitId == outfit.createdAt,
+                        onTap: () {
+                          setState(() {
+                            _selectedOutfitId = outfit.createdAt;
+                          });
+                        },
+                      ),
+                    );
+                  }),
               ],
             ),
           ),
@@ -1638,7 +2208,7 @@ class _PlannerDayCard extends StatelessWidget {
 
     return InkWell(
       onTap: canOpen ? onTap : null,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       child: Ink(
         decoration: BoxDecoration(
           color: isToday
@@ -1648,7 +2218,7 @@ class _PlannerDayCard extends StatelessWidget {
                   : isPastDate
                       ? const Color(0xFFF4F7F6)
                       : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isToday
                 ? const Color(0xFF0A7A76)
@@ -1661,23 +2231,27 @@ class _PlannerDayCard extends StatelessWidget {
               ? const [
                   BoxShadow(
                     color: Color(0x330A7A76),
-                    blurRadius: 14,
-                    offset: Offset(0, 6),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
                   ),
                 ]
               : null,
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxHeight <= 50;
-            final tight = constraints.maxHeight <= 46;
-            final padding = tight ? 4.0 : (compact ? 5.0 : 6.0);
-            final dateBadgeSize = isToday ? (tight ? 20.0 : (compact ? 22.0 : 26.0)) : null;
-            final dateFontSize = isToday ? (tight ? 10.0 : 12.0) : (tight ? 9.0 : 11.0);
-            final gap = tight ? 2.0 : 4.0;
-            final markerIconSize = tight ? 11.0 : 14.0;
-            final tagVertical = tight ? 2.0 : 3.0;
-            final tagHorizontal = tight ? 4.0 : 6.0;
+            final compact = constraints.maxHeight <= 42;
+            final tight = constraints.maxHeight <= 38;
+            final padding = tight ? 3.0 : (compact ? 4.0 : 5.0);
+            final dateBadgeSize = isToday
+                ? (tight ? 18.0 : (compact ? 20.0 : 22.0))
+                : null;
+            final dateFontSize = isToday
+                ? (tight ? 9.0 : 10.0)
+                : (tight ? 8.0 : 9.5);
+            final gap = tight ? 1.5 : 3.0;
+            final markerIconSize = tight ? 10.0 : 12.0;
+            final tagVertical = tight ? 1.5 : 2.0;
+            final tagHorizontal = tight ? 3.0 : 4.0;
 
             return Padding(
               padding: EdgeInsets.all(padding),
@@ -1721,22 +2295,22 @@ class _PlannerDayCard extends StatelessWidget {
                       child: Container(
                         width: double.infinity,
                         padding: EdgeInsets.symmetric(
-                          horizontal: tight ? 4 : 5,
-                          vertical: tight ? 3 : 4,
+                          horizontal: tight ? 3 : 4,
+                          vertical: tight ? 2 : 3,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF0A7A76),
-                          borderRadius: BorderRadius.circular(tight ? 6 : 8),
+                          borderRadius: BorderRadius.circular(tight ? 5 : 7),
                         ),
                         child: Text(
                           label ?? plannedOutfitName!,
-                          maxLines: tight ? 1 : 2,
+                          maxLines: compact ? 1 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: tight ? 7 : 8,
+                            fontSize: tight ? 6.5 : 7.0,
                             fontWeight: FontWeight.w800,
-                            height: 1.15,
+                            height: 1.1,
                           ),
                         ),
                       ),
@@ -1762,9 +2336,9 @@ class _PlannerDayCard extends StatelessWidget {
                                   'TODAY',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: tight ? 6.5 : 8,
+                                    fontSize: tight ? 6.0 : 7.0,
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: tight ? 0.3 : 0.6,
+                                    letterSpacing: tight ? 0.2 : 0.4,
                                   ),
                                 ),
                               )
@@ -1933,17 +2507,30 @@ class _PlannerLookTile extends StatelessWidget {
               size: 18,
             ),
             const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                outfit.name,
-                style: const TextStyle(
-                  color: Color(0xFF233234),
-                  fontWeight: FontWeight.w800,
+              Expanded(
+                child: Text(
+                  outfit.tags.isEmpty
+                      ? outfit.name
+                      : '${outfit.name} • ${outfit.tags.first}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF233234),
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            if (outfit.isFavorite)
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: Color(0xFFD05D79),
+                  size: 16,
+                ),
+              ),
+            ],
+          ),
       ),
     );
   }
@@ -2349,49 +2936,98 @@ class _SavedLookCard extends StatelessWidget {
         width: 168,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: outfit.isFavorite ? const Color(0xFFFFFBF7) : Colors.white,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE1EAE7)),
+          border: Border.all(
+            color: outfit.isFavorite
+                ? const Color(0xFFF1D9B4)
+                : const Color(0xFFE1EAE7),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: Row(
-                children: preview.map((item) {
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: item == preview.last ? 0 : 6,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          item.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Color(0xFFEAF2F0),
-                              ),
-                            );
-                          },
+              child: Stack(
+                children: [
+                  Row(
+                    children: preview.map((item) {
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: item == preview.last ? 0 : 6,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              item.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFEAF2F0),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  if (outfit.isFavorite)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Color(0x22000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite_rounded,
+                          color: Color(0xFFD05D79),
+                          size: 14,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                ],
               ),
             ),
             const SizedBox(height: 8),
             Text(
               outfit.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Color(0xFF223234),
                 fontWeight: FontWeight.w800,
                 fontSize: 12,
               ),
             ),
+            if (outfit.tags.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                outfit.tags.take(2).join(' • '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0A7A76),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                ),
+              ),
+            ] else
+              const SizedBox(height: 4),
             const SizedBox(height: 2),
             Text(
               '${items.length} pieces',
@@ -2473,17 +3109,23 @@ class _SavedOutfit {
   const _SavedOutfit({
     required this.name,
     required this.itemIds,
+    required this.tags,
+    required this.isFavorite,
     required this.createdAt,
   });
 
   final String name;
   final List<String> itemIds;
+  final List<String> tags;
+  final bool isFavorite;
   final String createdAt;
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
       'item_ids': itemIds,
+      'tags': tags,
+      'is_favorite': isFavorite,
       'created_at': createdAt,
     };
   }
@@ -2494,6 +3136,11 @@ class _SavedOutfit {
       itemIds: ((json['item_ids'] as List<dynamic>?) ?? const [])
           .map((item) => item.toString())
           .toList(),
+      tags: ((json['tags'] as List<dynamic>?) ?? const [])
+          .map((tag) => tag.toString())
+          .where((tag) => tag.trim().isNotEmpty)
+          .toList(),
+      isFavorite: json['is_favorite'] as bool? ?? false,
       createdAt: json['created_at'] as String? ?? '',
     );
   }
@@ -2501,14 +3148,28 @@ class _SavedOutfit {
   _SavedOutfit copyWith({
     String? name,
     List<String>? itemIds,
+    List<String>? tags,
+    bool? isFavorite,
     String? createdAt,
   }) {
     return _SavedOutfit(
       name: name ?? this.name,
       itemIds: itemIds ?? this.itemIds,
+      tags: tags ?? this.tags,
+      isFavorite: isFavorite ?? this.isFavorite,
       createdAt: createdAt ?? this.createdAt,
     );
   }
+}
+
+class _SavedOutfitDraft {
+  const _SavedOutfitDraft({
+    required this.name,
+    required this.tags,
+  });
+
+  final String name;
+  final List<String> tags;
 }
 
 class _PlannedEvent {

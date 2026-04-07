@@ -27,9 +27,26 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const _savedOutfitsKeyPrefix = 'stylex_saved_outfits_v2';
+  static const _plannedOutfitsKeyPrefix = 'stylex_planned_outfits_v1';
+  static const _generatedOutfitBadges = [
+    'Recommended for you',
+    'AI-styled for today',
+    'Curated from your closet',
+    'Fresh pick for you',
+  ];
+  static const _plannedOutfitBadges = [
+    'Looking snazzy today',
+    'Today\'s look is locked in',
+    'Styled ahead of time',
+    'Serving a planned slay',
+    'Dressed and dialed in',
+  ];
   static String? _cachedUserId;
   static List<ClosetItemPreview>? _cachedClosetItems;
   static List<ClosetItemPreview>? _cachedOutfitSuggestion;
+  static String? _cachedPlannedOutfitDateKey;
+  static List<ClosetItemPreview>? _cachedPlannedOutfitForToday;
+  static String? _cachedPlannedOutfitNameForToday;
   static int _cachedSuggestionSeed = 0;
 
   late final HomeViewModel _viewModel;
@@ -43,11 +60,16 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _unusedItemTitle;
   List<ClosetItemPreview> _recentItems = const [];
   List<ClosetItemPreview> _unusedItems = const [];
+  List<ClosetItemPreview> _plannedOutfitForToday = const [];
+  String? _plannedOutfitNameForToday;
 
   static void clearSessionCache() {
     _cachedUserId = null;
     _cachedClosetItems = null;
     _cachedOutfitSuggestion = null;
+    _cachedPlannedOutfitDateKey = null;
+    _cachedPlannedOutfitForToday = null;
+    _cachedPlannedOutfitNameForToday = null;
     _cachedSuggestionSeed = 0;
   }
 
@@ -62,6 +84,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _closetItems = _cachedClosetItems ?? const [];
     _outfitSuggestion = _cachedOutfitSuggestion ?? const [];
+    if (_cachedPlannedOutfitDateKey == _dateKey(DateTime.now())) {
+      _plannedOutfitForToday = _cachedPlannedOutfitForToday ?? const [];
+      _plannedOutfitNameForToday = _cachedPlannedOutfitNameForToday;
+    }
     _suggestionSeed = _cachedOutfitSuggestion == null
         ? DateTime.now().millisecondsSinceEpoch
         : _cachedSuggestionSeed;
@@ -80,6 +106,8 @@ class _HomeScreenState extends State<HomeScreen> {
     await Future.wait([
       _viewModel.load(forceRefresh: false),
       if (!hasCache) _loadClosetCount(),
+      if (hasCache) _loadCachedInsights(),
+      if (hasCache) _loadPlannedOutfitForToday(),
     ]);
   }
 
@@ -91,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final items = await _closetService.fetchClosetItems();
       final insights = await _buildClosetInsights(items);
+      final plannedForToday = await _resolvePlannedOutfitForToday(items);
       if (!mounted) return;
       setState(() {
         _closetItems = items;
@@ -100,12 +129,17 @@ class _HomeScreenState extends State<HomeScreen> {
         _cachedClosetItems = _closetItems;
         _cachedOutfitSuggestion = _outfitSuggestion;
         _cachedSuggestionSeed = _suggestionSeed;
+        _cachedPlannedOutfitDateKey = _dateKey(DateTime.now());
+        _cachedPlannedOutfitForToday = plannedForToday.items;
+        _cachedPlannedOutfitNameForToday = plannedForToday.name;
         _cachedUserId = Supabase.instance.client.auth.currentUser?.id;
         _recentItemsCount = insights.recentItemsCount;
         _unusedItemsCount = insights.unusedItemsCount;
         _unusedItemTitle = insights.unusedItemTitle;
         _recentItems = insights.recentItems;
         _unusedItems = insights.unusedItems;
+        _plannedOutfitForToday = plannedForToday.items;
+        _plannedOutfitNameForToday = plannedForToday.name;
         _isLoadingCloset = false;
       });
     } catch (_) {
@@ -115,6 +149,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _outfitSuggestion = const [];
         _cachedClosetItems = _closetItems;
         _cachedOutfitSuggestion = _outfitSuggestion;
+        _cachedPlannedOutfitDateKey = _dateKey(DateTime.now());
+        _cachedPlannedOutfitForToday = const [];
+        _cachedPlannedOutfitNameForToday = null;
         _cachedUserId = Supabase.instance.client.auth.currentUser?.id;
         _cachedSuggestionSeed = 0;
         _recentItemsCount = 0;
@@ -122,9 +159,35 @@ class _HomeScreenState extends State<HomeScreen> {
         _unusedItemTitle = null;
         _recentItems = const [];
         _unusedItems = const [];
+        _plannedOutfitForToday = const [];
+        _plannedOutfitNameForToday = null;
         _isLoadingCloset = false;
       });
     }
+  }
+
+  Future<void> _loadPlannedOutfitForToday() async {
+    final plannedForToday = await _resolvePlannedOutfitForToday(_closetItems);
+    if (!mounted) return;
+    setState(() {
+      _plannedOutfitForToday = plannedForToday.items;
+      _plannedOutfitNameForToday = plannedForToday.name;
+      _cachedPlannedOutfitDateKey = _dateKey(DateTime.now());
+      _cachedPlannedOutfitForToday = plannedForToday.items;
+      _cachedPlannedOutfitNameForToday = plannedForToday.name;
+    });
+  }
+
+  Future<void> _loadCachedInsights() async {
+    final insights = await _buildClosetInsights(_closetItems);
+    if (!mounted) return;
+    setState(() {
+      _recentItemsCount = insights.recentItemsCount;
+      _unusedItemsCount = insights.unusedItemsCount;
+      _unusedItemTitle = insights.unusedItemTitle;
+      _recentItems = insights.recentItems;
+      _unusedItems = insights.unusedItems;
+    });
   }
 
   Future<_ClosetInsightsData> _buildClosetInsights(
@@ -252,6 +315,76 @@ class _HomeScreenState extends State<HomeScreen> {
     _cachedSuggestionSeed = _suggestionSeed;
   }
 
+  String _dateKey(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final month = normalized.month.toString().padLeft(2, '0');
+    final day = normalized.day.toString().padLeft(2, '0');
+    return '${normalized.year}-$month-$day';
+  }
+
+  Future<_TodayPlannedOutfitData> _resolvePlannedOutfitForToday(
+    List<ClosetItemPreview> items,
+  ) async {
+    if (items.isEmpty) {
+      return const _TodayPlannedOutfitData(items: []);
+    }
+
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final prefs = await SharedPreferences.getInstance();
+    final rawPlanned = prefs.getString('$_plannedOutfitsKeyPrefix:$currentUserId');
+    if (rawPlanned == null || rawPlanned.isEmpty) {
+      return const _TodayPlannedOutfitData(items: []);
+    }
+
+    try {
+      final decoded = jsonDecode(rawPlanned) as Map<String, dynamic>;
+      final plannedEntry = decoded[_dateKey(DateTime.now())];
+      if (plannedEntry == null) {
+        return const _TodayPlannedOutfitData(items: []);
+      }
+
+      final outfitId = plannedEntry is String
+          ? plannedEntry
+          : ((plannedEntry as Map<String, dynamic>)['outfit_id'] ??
+                  plannedEntry['outfitId'])
+              ?.toString();
+      if (outfitId == null || outfitId.isEmpty) {
+        return const _TodayPlannedOutfitData(items: []);
+      }
+
+      final rawSavedOutfits =
+          prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ?? const [];
+      for (final entry in rawSavedOutfits) {
+        try {
+          final json = jsonDecode(entry) as Map<String, dynamic>;
+          if ((json['created_at']?.toString() ?? '') != outfitId) {
+            continue;
+          }
+
+          final itemIds = (json['item_ids'] as List<dynamic>? ?? const [])
+              .map((item) => item.toString())
+              .toSet();
+          final plannedItems =
+              items.where((item) => itemIds.contains(item.id)).toList();
+          if (plannedItems.isEmpty) {
+            return const _TodayPlannedOutfitData(items: []);
+          }
+
+          return _TodayPlannedOutfitData(
+            items: plannedItems,
+            name: json['name']?.toString(),
+          );
+        } catch (_) {
+          continue;
+        }
+      }
+    } catch (_) {
+      return const _TodayPlannedOutfitData(items: []);
+    }
+
+    return const _TodayPlannedOutfitData(items: []);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -263,6 +396,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, _) {
         final weather = _viewModel.state;
         final hasClosetItems = _closetItems.isNotEmpty;
+        final hasPlannedOutfitToday = _plannedOutfitForToday.isNotEmpty;
+        final hasGeneratedSuggestion = _outfitSuggestion.isNotEmpty;
 
         return Scaffold(
           body: AppViewport(
@@ -320,17 +455,49 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                         const SizedBox(height: 28),
-                        const _SectionLabel(
+                        _SectionLabel(
                           title: 'Outfit of the Day',
-                          badge: 'RECOMMENDED FOR YOU',
+                          badge: hasPlannedOutfitToday
+                              ? 'PLANNED + AI PICK'
+                              : _generatedOutfitBadge(),
                         ),
                         const SizedBox(height: 14),
                         if (_isLoadingCloset)
                           const _HomeLoadingCard()
                         else if (hasClosetItems)
-                          _OutfitGrid(
-                            items: _outfitSuggestion,
-                            showOuterwear: weather.shouldSuggestOuterwear,
+                          Column(
+                            children: [
+                              if (hasPlannedOutfitToday) ...[
+                                _HomeOutfitShowcaseCard(
+                                  eyebrow: _plannedOutfitBadge(),
+                                  title:
+                                      (_plannedOutfitNameForToday?.trim().isNotEmpty ??
+                                              false)
+                                          ? _plannedOutfitNameForToday!
+                                          : 'Planned for today',
+                                  child: _OutfitGrid(
+                                    items: _plannedOutfitForToday,
+                                    showOuterwear: weather.shouldSuggestOuterwear,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                              ],
+                              _HomeOutfitShowcaseCard(
+                                eyebrow: hasPlannedOutfitToday
+                                    ? 'Fresh AI suggestion'
+                                    : _generatedOutfitBadge(),
+                                title: hasPlannedOutfitToday
+                                    ? null
+                                    : 'Recommended for you',
+                                child: hasGeneratedSuggestion
+                                    ? _OutfitGrid(
+                                        items: _outfitSuggestion,
+                                        showOuterwear:
+                                            weather.shouldSuggestOuterwear,
+                                      )
+                                    : const _OutfitSuggestionUnavailableCard(),
+                              ),
+                            ],
                           )
                         else
                           _EmptyHomeSuggestionCard(
@@ -372,6 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     _refreshSuggestion();
                                     _cachedClosetItems = _closetItems;
                                   });
+                                  await _loadPlannedOutfitForToday();
                                 } else if (!_isLoadingCloset) {
                                   Navigator.of(context).pushReplacement(
                                     MaterialPageRoute<void>(
@@ -524,6 +692,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return 'there';
   }
+
+  String _generatedOutfitBadge() {
+    final phrases = _generatedOutfitBadges;
+    final now = DateTime.now();
+    final todaySeed = now.year * 10000 + now.month * 100 + now.day;
+    final extraSeed = _suggestionSeed;
+    final index = (todaySeed + extraSeed.abs()) % phrases.length;
+    return phrases[index];
+  }
+
+  String _plannedOutfitBadge() {
+    final now = DateTime.now();
+    final todaySeed = now.year * 10000 + now.month * 100 + now.day;
+    final extraSeed = _plannedOutfitNameForToday?.length ?? 0;
+    final index = (todaySeed + extraSeed) % _plannedOutfitBadges.length;
+    return _plannedOutfitBadges[index];
+  }
 }
 
 class _Header extends StatelessWidget {
@@ -572,8 +757,10 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.end,
+      spacing: 8,
+      runSpacing: 4,
       children: [
         Text(
           title,
@@ -583,7 +770,6 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
         if (badge != null) ...[
-          const SizedBox(width: 8),
           Padding(
             padding: const EdgeInsets.only(bottom: 2),
             child: Text(
@@ -591,12 +777,65 @@ class _SectionLabel extends StatelessWidget {
               style: theme.textTheme.labelSmall?.copyWith(
                 color: const Color(0xFF0A8C87),
                 fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
+                letterSpacing: 0.35,
               ),
             ),
           ),
         ],
       ],
+    );
+  }
+}
+
+class _HomeOutfitShowcaseCard extends StatelessWidget {
+  const _HomeOutfitShowcaseCard({
+    required this.eyebrow,
+    this.title,
+    required this.child,
+  });
+
+  final String eyebrow;
+  final String? title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5FAF9),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE0ECE9)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              eyebrow,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF0A8C87),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.45,
+              ),
+            ),
+            if (title != null && title!.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                title!,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF1F2B2D),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
     );
   }
 }
@@ -677,6 +916,54 @@ class _OutfitGrid extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _OutfitSuggestionUnavailableCard extends StatelessWidget {
+  const _OutfitSuggestionUnavailableCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE1EEEB)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.auto_awesome_outlined,
+              color: Color(0xFF0A7A76),
+              size: 24,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'We need a few more pieces to build a fresh suggestion.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF1F2B2D),
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Add a mix of tops, bottoms, and shoes to unlock more generated looks.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF6A7C7E),
+                height: 1.45,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1443,6 +1730,16 @@ class _ClosetInsightsData {
   final String? unusedItemTitle;
   final List<ClosetItemPreview> recentItems;
   final List<ClosetItemPreview> unusedItems;
+}
+
+class _TodayPlannedOutfitData {
+  const _TodayPlannedOutfitData({
+    required this.items,
+    this.name,
+  });
+
+  final List<ClosetItemPreview> items;
+  final String? name;
 }
 
 class _TrendingCombination {

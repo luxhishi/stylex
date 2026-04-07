@@ -5,6 +5,7 @@ class ClosetItemPreview {
     required this.source,
     required this.category,
     required this.primaryColor,
+    required this.material,
     required this.title,
     required this.subtitle,
     required this.createdAt,
@@ -15,6 +16,7 @@ class ClosetItemPreview {
   final String source;
   final String category;
   final String primaryColor;
+  final String material;
   final String title;
   final String subtitle;
   final DateTime? createdAt;
