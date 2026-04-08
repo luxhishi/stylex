@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/closet_item_preview.dart';
 import '../services/closet_service.dart';
+import '../services/recent_outfit_history_service.dart';
 import '../view_models/home_view_model.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
@@ -51,6 +52,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late final HomeViewModel _viewModel;
   final ClosetService _closetService = ClosetService();
+  final RecentOutfitHistoryService _recentHistoryService =
+      RecentOutfitHistoryService();
   List<ClosetItemPreview> _closetItems = const [];
   List<ClosetItemPreview> _outfitSuggestion = const [];
   int _suggestionSeed = 0;
@@ -58,8 +61,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _recentItemsCount = 0;
   int _unusedItemsCount = 0;
   String? _unusedItemTitle;
-  List<ClosetItemPreview> _recentItems = const [];
-  List<ClosetItemPreview> _unusedItems = const [];
   List<ClosetItemPreview> _plannedOutfitForToday = const [];
   String? _plannedOutfitNameForToday;
 
@@ -136,8 +137,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _recentItemsCount = insights.recentItemsCount;
         _unusedItemsCount = insights.unusedItemsCount;
         _unusedItemTitle = insights.unusedItemTitle;
-        _recentItems = insights.recentItems;
-        _unusedItems = insights.unusedItems;
         _plannedOutfitForToday = plannedForToday.items;
         _plannedOutfitNameForToday = plannedForToday.name;
         _isLoadingCloset = false;
@@ -157,8 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _recentItemsCount = 0;
         _unusedItemsCount = 0;
         _unusedItemTitle = null;
-        _recentItems = const [];
-        _unusedItems = const [];
         _plannedOutfitForToday = const [];
         _plannedOutfitNameForToday = null;
         _isLoadingCloset = false;
@@ -185,8 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _recentItemsCount = insights.recentItemsCount;
       _unusedItemsCount = insights.unusedItemsCount;
       _unusedItemTitle = insights.unusedItemTitle;
-      _recentItems = insights.recentItems;
-      _unusedItems = insights.unusedItems;
     });
   }
 
@@ -222,86 +217,34 @@ class _HomeScreenState extends State<HomeScreen> {
       recentItemsCount: recentItemsCount,
       unusedItemsCount: unusedItems.length,
       unusedItemTitle: unusedItems.isNotEmpty ? unusedItems.first.title : null,
-      recentItems: items.where((item) {
-        final createdAt = item.createdAt;
-        if (createdAt == null) return false;
-        return createdAt.isAfter(recentThreshold);
-      }).toList(),
-      unusedItems: unusedItems,
     );
   }
 
-  void _showInsightItemsSheet({
+  void _openClosetFilter(String filter, {bool showUnusedFilter = false}) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => ClosetScreen(
+          initialFilter: filter,
+          showUnusedFilter: showUnusedFilter,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _storeRecentLook({
     required String title,
-    required String emptyMessage,
     required List<ClosetItemPreview> items,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        final theme = Theme.of(context);
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(14, 60, 14, 14),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD8E5E1),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF203032),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  if (items.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        emptyMessage,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF708082),
-                          height: 1.45,
-                        ),
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      height: 340,
-                      child: ListView.separated(
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          return _InsightItemTile(item: items[index]);
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+    required String source,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await _recentHistoryService.addLook(
+      title: title,
+      itemIds: items.map((item) => item.id).toList(),
+      source: source,
+    );
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text('$title added to recent looks.')),
     );
   }
 
@@ -475,6 +418,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                               false)
                                           ? _plannedOutfitNameForToday!
                                           : 'Planned for today',
+                                  actionLabel: 'Use This Look',
+                                  onAction: () {
+                                    _storeRecentLook(
+                                      title:
+                                          (_plannedOutfitNameForToday
+                                                      ?.trim()
+                                                      .isNotEmpty ??
+                                                  false)
+                                              ? _plannedOutfitNameForToday!
+                                              : 'Planned for today',
+                                      items: _plannedOutfitForToday,
+                                      source: 'planned',
+                                    );
+                                  },
                                   child: _OutfitGrid(
                                     items: _plannedOutfitForToday,
                                     showOuterwear: weather.shouldSuggestOuterwear,
@@ -489,6 +446,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 title: hasPlannedOutfitToday
                                     ? null
                                     : 'Recommended for you',
+                                actionLabel: hasGeneratedSuggestion
+                                    ? 'Use This Look'
+                                    : null,
+                                onAction: hasGeneratedSuggestion
+                                    ? () {
+                                        _storeRecentLook(
+                                          title: hasPlannedOutfitToday
+                                              ? 'Fresh AI suggestion'
+                                              : 'Recommended for you',
+                                          items: _outfitSuggestion,
+                                          source: 'ai',
+                                        );
+                                      }
+                                    : null,
                                 child: hasGeneratedSuggestion
                                     ? _OutfitGrid(
                                         items: _outfitSuggestion,
@@ -594,11 +565,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ? '$_unusedItemsCount pieces have not been used yet. Try styling $_unusedItemTitle next.'
                                           : '$_unusedItemsCount pieces have not been used in a saved outfit yet.',
                                   onTap: () {
-                                    _showInsightItemsSheet(
-                                      title: 'Unused Closet Pieces',
-                                      emptyMessage:
-                                          'Every closet piece has already been used in a saved outfit.',
-                                      items: _unusedItems,
+                                    _openClosetFilter(
+                                      'Unused',
+                                      showUnusedFilter: true,
                                     );
                                   },
                                 ),
@@ -614,12 +583,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ? 'You added 1 item in the last 7 days.'
                                           : 'You added $_recentItemsCount items in the last 7 days.',
                                   onTap: () {
-                                    _showInsightItemsSheet(
-                                      title: 'Recently Added Pieces',
-                                      emptyMessage:
-                                          'No new items were added in the last 7 days.',
-                                      items: _recentItems,
-                                    );
+                                    _openClosetFilter('Recently Added');
                                   },
                                 ),
                               ),
@@ -792,11 +756,15 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
     required this.eyebrow,
     this.title,
     required this.child,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String eyebrow;
   final String? title;
   final Widget child;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -833,6 +801,28 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
             ],
             const SizedBox(height: 12),
             child,
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: onAction,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0A8C87),
+                    side: const BorderSide(color: Color(0xFFBFE2DD)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  icon: const Icon(Icons.bookmark_add_rounded, size: 16),
+                  label: Text(actionLabel!),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1479,6 +1469,7 @@ class _HomeLoadingInsightsCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _InsightItemTile extends StatelessWidget {
   const _InsightItemTile({required this.item});
 
@@ -1721,15 +1712,11 @@ class _ClosetInsightsData {
     required this.recentItemsCount,
     required this.unusedItemsCount,
     required this.unusedItemTitle,
-    required this.recentItems,
-    required this.unusedItems,
   });
 
   final int recentItemsCount;
   final int unusedItemsCount;
   final String? unusedItemTitle;
-  final List<ClosetItemPreview> recentItems;
-  final List<ClosetItemPreview> unusedItems;
 }
 
 class _TodayPlannedOutfitData {

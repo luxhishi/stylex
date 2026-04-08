@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/closet_item_preview.dart';
+import '../models/recent_outfit_history_entry.dart';
 import '../services/closet_service.dart';
+import '../services/recent_outfit_history_service.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
 import 'closet_screen.dart';
@@ -39,8 +41,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   ];
 
   final ClosetService _closetService = ClosetService();
+  final RecentOutfitHistoryService _recentHistoryService =
+      RecentOutfitHistoryService();
   List<ClosetItemPreview> _closetItems = const [];
   List<_SavedOutfit> _savedOutfits = const [];
+  List<RecentOutfitHistoryEntry> _recentHistory = const [];
   ClosetItemPreview? _selectedTop;
   ClosetItemPreview? _selectedBottom;
   ClosetItemPreview? _selectedShoe;
@@ -71,6 +76,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       _loadClosetItems(),
       _loadSavedOutfits(),
       _loadPlannedOutfits(),
+      _loadRecentHistory(),
     ]);
   }
 
@@ -121,6 +127,14 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       if (!_savedLookTags.contains(_selectedSavedLookTag)) {
         _selectedSavedLookTag = 'All';
       }
+    });
+  }
+
+  Future<void> _loadRecentHistory() async {
+    final history = await _recentHistoryService.loadHistory();
+    if (!mounted) return;
+    setState(() {
+      _recentHistory = history;
     });
   }
 
@@ -269,6 +283,25 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       return 'You have not favorited any looks yet.';
     }
     return 'No saved looks match this tag yet.';
+  }
+
+  List<_RecentLookBundle> get _visibleRecentHistory {
+    return _recentHistory
+        .map((entry) {
+          final items = entry.itemIds
+              .map((id) {
+                for (final item in _closetItems) {
+                  if (item.id == id) return item;
+                }
+                return null;
+              })
+              .whereType<ClosetItemPreview>()
+              .toList();
+          if (items.length < 2) return null;
+          return _RecentLookBundle(entry: entry, items: items);
+        })
+        .whereType<_RecentLookBundle>()
+        .toList();
   }
 
   Future<void> _generateOutfit() async {
@@ -448,6 +481,13 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     }
 
     _applyOutfitItems(items);
+  }
+
+  void _applyRecentLook(_RecentLookBundle bundle) {
+    _applyOutfitItems(bundle.items);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${bundle.entry.title} is now in your workspace.')),
+    );
   }
 
   Future<void> _updateSavedOutfit(
@@ -1500,13 +1540,48 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _MoodboardPanel(
-                      top: _selectedTop,
-                      bottom: _selectedBottom,
-                      shoe: _selectedShoe,
-                      layer: _selectedLayer,
-                    ),
+                    if (_visibleRecentHistory.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      _SoftPanel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Recent Looks',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF233234),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Looks you chose from Home show up here so you can reuse them quickly.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: const Color(0xFF6F8082),
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 158,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _visibleRecentHistory.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (context, index) {
+                                  final look = _visibleRecentHistory[index];
+                                  return _RecentLookCard(
+                                    bundle: look,
+                                    onTap: () => _applyRecentLook(look),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (_hasCurrentOutfit) ...[
                       const SizedBox(height: 16),
                       _SoftPanel(
@@ -2759,72 +2834,110 @@ class _CurrentLookChip extends StatelessWidget {
   }
 }
 
-class _MoodboardPanel extends StatelessWidget {
-  const _MoodboardPanel({
-    required this.top,
-    required this.bottom,
-    required this.shoe,
-    required this.layer,
+class _RecentLookBundle {
+  const _RecentLookBundle({
+    required this.entry,
+    required this.items,
   });
 
-  final ClosetItemPreview? top;
-  final ClosetItemPreview? bottom;
-  final ClosetItemPreview? shoe;
-  final ClosetItemPreview? layer;
+  final RecentOutfitHistoryEntry entry;
+  final List<ClosetItemPreview> items;
+}
+
+class _RecentLookCard extends StatelessWidget {
+  const _RecentLookCard({
+    required this.bundle,
+    required this.onTap,
+  });
+
+  final _RecentLookBundle bundle;
+  final VoidCallback onTap;
+
+  String _relativeLabel() {
+    final createdAt = DateTime.tryParse(bundle.entry.createdAt);
+    if (createdAt == null) return 'Recently added';
+    final difference = DateTime.now().difference(createdAt);
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+    if (difference.inDays < 1) return '${difference.inHours}h ago';
+    if (difference.inDays == 1) return 'Yesterday';
+    return '${difference.inDays}d ago';
+  }
+
+  String _sourceLabel() {
+    switch (bundle.entry.source.trim().toLowerCase()) {
+      case 'planned':
+        return 'Planned';
+      case 'ai':
+        return 'AI pick';
+      case 'home':
+      default:
+        return 'From Home';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pieces = [top, bottom, shoe, layer].whereType<ClosetItemPreview>().toList();
+    final preview = bundle.items.take(2).toList();
+    final theme = Theme.of(context);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFEFF7F5), Color(0xFFF8FBFA)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        width: 176,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6FAF9),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE1ECE9)),
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE0EBE8)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 240,
+              height: 76,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned(
-                    top: 12,
-                    left: 10,
-                    right: 50,
-                    child: _PhotoPolaroid(item: pieces.isNotEmpty ? pieces[0] : null),
+                    left: 0,
+                    top: 0,
+                    child: _RecentLookPreviewImage(
+                      item: preview.isNotEmpty ? preview[0] : null,
+                    ),
                   ),
                   Positioned(
-                    bottom: 10,
-                    right: 0,
-                    width: 120,
-                    child: _PhotoPolaroid(
-                      item: pieces.length > 1 ? pieces[1] : null,
-                      tilt: -0.12,
+                    right: 4,
+                    bottom: 0,
+                    child: _RecentLookPreviewImage(
+                      item: preview.length > 1 ? preview[1] : null,
                       compact: true,
                     ),
                   ),
                 ],
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                _MiniActionIcon(icon: Icons.search_rounded),
-                SizedBox(width: 12),
-                _MiniActionIcon(icon: Icons.auto_awesome_rounded),
-                SizedBox(width: 12),
-                _MiniActionIcon(icon: Icons.undo_rounded),
-                SizedBox(width: 12),
-                _MiniActionIcon(icon: Icons.refresh_rounded),
-              ],
+            const Spacer(),
+            Text(
+              bundle.entry.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: const Color(0xFF203032),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${_sourceLabel()} • ${_relativeLabel()}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF6F8082),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
             ),
           ],
         ),
@@ -2833,83 +2946,60 @@ class _MoodboardPanel extends StatelessWidget {
   }
 }
 
-class _PhotoPolaroid extends StatelessWidget {
-  const _PhotoPolaroid({
+class _RecentLookPreviewImage extends StatelessWidget {
+  const _RecentLookPreviewImage({
     required this.item,
-    this.tilt = 0.06,
     this.compact = false,
   });
 
   final ClosetItemPreview? item;
-  final double tilt;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: tilt,
-      child: Container(
-        height: compact ? 136 : 172,
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 20,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: item == null
-              ? const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFF3F6F5), Color(0xFFE0E9E7)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                )
-              : Image.network(
-                  item!.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFF3F6F5), Color(0xFFE0E9E7)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniActionIcon extends StatelessWidget {
-  const _MiniActionIcon({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      width: 34,
-      height: 34,
-      decoration: const BoxDecoration(
+      width: compact ? 62 : 96,
+      height: compact ? 62 : 76,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
         color: Colors.white,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      child: Icon(icon, color: const Color(0xFF6A7E80), size: 18),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: item == null
+            ? const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF3F6F5), Color(0xFFE0E9E7)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              )
+            : Image.network(
+                item!.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF3F6F5), Color(0xFFE0E9E7)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

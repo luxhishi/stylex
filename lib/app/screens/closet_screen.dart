@@ -17,7 +17,14 @@ import 'outfits_screen.dart';
 import 'settings_screen.dart';
 
 class ClosetScreen extends StatefulWidget {
-  const ClosetScreen({super.key});
+  const ClosetScreen({
+    super.key,
+    this.initialFilter = 'All Items',
+    this.showUnusedFilter = false,
+  });
+
+  final String initialFilter;
+  final bool showUnusedFilter;
 
   @override
   State<ClosetScreen> createState() => _ClosetScreenState();
@@ -27,28 +34,31 @@ class _ClosetScreenState extends State<ClosetScreen> {
   static const _savedOutfitsKeyPrefix = 'stylex_saved_outfits_v2';
   static const _plannedOutfitsKeyPrefix = 'stylex_planned_outfits_v1';
   static const _typeOptions = ['Top', 'Bottom', 'Shoe', 'Outerwear'];
-
-  final ImagePicker _picker = ImagePicker();
-  final ClosetAnalysisService _analysisService = ClosetAnalysisService();
-  final ClosetService _closetService = ClosetService();
-  var _isLaunchingCamera = false;
-  var _isGeneratingLookbook = false;
-  var _selectedFilter = 'All Items';
-  var _isLoadingCloset = true;
-  var _primaryStyleSlug = 'minimalist';
-  List<ClosetItemPreview> _items = const [];
-
-  static const _filters = [
-    'All Items',
+  static const _allItemsFilter = 'All Items';
+  static const _recentlyAddedFilter = 'Recently Added';
+  static const _unusedFilter = 'Unused';
+  static const _categoryFilters = [
     'Outerwear',
     'Tops',
     'Bottoms',
     'Shoes',
   ];
 
+  final ImagePicker _picker = ImagePicker();
+  final ClosetAnalysisService _analysisService = ClosetAnalysisService();
+  final ClosetService _closetService = ClosetService();
+  var _isLaunchingCamera = false;
+  var _isGeneratingLookbook = false;
+  var _selectedFilter = _allItemsFilter;
+  var _isLoadingCloset = true;
+  var _primaryStyleSlug = 'minimalist';
+  List<ClosetItemPreview> _items = const [];
+  Set<String> _unusedItemIds = <String>{};
+
   @override
   void initState() {
     super.initState();
+    _selectedFilter = _resolvedInitialFilter(widget.initialFilter);
     _initializeCloset();
   }
 
@@ -62,19 +72,71 @@ class _ClosetScreenState extends State<ClosetScreen> {
   Future<void> _loadClosetCount() async {
     try {
       final items = await _closetService.fetchClosetItems();
+      final unusedItemIds = await _loadUnusedItemIds(items);
       if (!mounted) return;
       setState(() {
         _items = items;
+        _unusedItemIds = unusedItemIds;
         _isLoadingCloset = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _items = const [];
+        _unusedItemIds = <String>{};
         _isLoadingCloset = false;
       });
     }
   }
+
+  Future<Set<String>> _loadUnusedItemIds(List<ClosetItemPreview> items) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final prefs = await SharedPreferences.getInstance();
+    final rawSavedLooks = prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ??
+        const [];
+    final usedItemIds = <String>{};
+
+    for (final entry in rawSavedLooks) {
+      try {
+        final json = jsonDecode(entry) as Map<String, dynamic>;
+        final itemIds = ((json['item_ids'] as List<dynamic>?) ?? const [])
+            .map((item) => item.toString());
+        usedItemIds.addAll(itemIds);
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return items
+        .where((item) => !usedItemIds.contains(item.id))
+        .map((item) => item.id)
+        .toSet();
+  }
+
+  String _resolvedInitialFilter(String requestedFilter) {
+    final normalized = requestedFilter.trim().toLowerCase();
+    if (normalized == _recentlyAddedFilter.toLowerCase()) {
+      return _recentlyAddedFilter;
+    }
+    if (normalized == _unusedFilter.toLowerCase()) {
+      return _unusedFilter;
+    }
+
+    for (final filter in _categoryFilters) {
+      if (normalized == filter.toLowerCase()) {
+        return filter;
+      }
+    }
+
+    return _allItemsFilter;
+  }
+
+  List<String> get _availableFilters => [
+        _allItemsFilter,
+        _recentlyAddedFilter,
+        if (widget.showUnusedFilter || _selectedFilter == _unusedFilter) _unusedFilter,
+        ..._categoryFilters,
+      ];
 
   Future<void> _loadStylePreference() async {
     final user = Supabase.instance.client.auth.currentUser;
@@ -798,7 +860,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final filteredItems = _filteredItemsForSelection();
-    final hasClosetItems = filteredItems.isNotEmpty;
+    final hasClosetItems = _items.isNotEmpty;
+    final hasFilteredItems = filteredItems.isNotEmpty;
 
     return Scaffold(
       body: AppViewport(
@@ -882,7 +945,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemBuilder: (context, index) {
-                          final filter = _filters[index];
+                          final filter = _availableFilters[index];
                           final selected = filter == _selectedFilter;
                           return ChoiceChip(
                             label: Text(filter),
@@ -912,7 +975,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                           );
                         },
                         separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemCount: _filters.length,
+                        itemCount: _availableFilters.length,
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -926,25 +989,33 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         ),
                       )
                     else if (hasClosetItems) ...[
-                      GridView.builder(
-                        itemCount: filteredItems.length,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.76,
+                      if (hasFilteredItems)
+                        GridView.builder(
+                          itemCount: filteredItems.length,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.76,
+                          ),
+                          itemBuilder: (context, index) {
+                            final item = filteredItems[index];
+                            return _ClosetGridCard(
+                              item: item,
+                              onTap: () => _showEditItemSheet(item),
+                            );
+                          },
+                        )
+                      else
+                        _FilteredClosetEmptyState(
+                          selectedFilter: _selectedFilter,
+                          onReset: () {
+                            setState(() => _selectedFilter = _allItemsFilter);
+                          },
                         ),
-                        itemBuilder: (context, index) {
-                          final item = filteredItems[index];
-                          return _ClosetGridCard(
-                            item: item,
-                            onTap: () => _showEditItemSheet(item),
-                          );
-                        },
-                      ),
                       const SizedBox(height: 18),
                       Container(
                         width: double.infinity,
@@ -1054,8 +1125,27 @@ class _ClosetScreenState extends State<ClosetScreen> {
   }
 
   List<ClosetItemPreview> _filteredItemsForSelection() {
-    if (_selectedFilter == 'All Items') {
+    if (_selectedFilter == _allItemsFilter) {
       return _items;
+    }
+
+    if (_selectedFilter == _recentlyAddedFilter) {
+      final recentThreshold = DateTime.now().subtract(const Duration(days: 7));
+      final recentItems = _items.where((item) {
+        final createdAt = item.createdAt;
+        if (createdAt == null) return false;
+        return createdAt.isAfter(recentThreshold);
+      }).toList();
+      recentItems.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
+      return recentItems;
+    }
+
+    if (_selectedFilter == _unusedFilter) {
+      return _items.where((item) => _unusedItemIds.contains(item.id)).toList();
     }
 
     return _items.where((item) {
@@ -1282,6 +1372,71 @@ class _ClosetGridCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FilteredClosetEmptyState extends StatelessWidget {
+  const _FilteredClosetEmptyState({
+    required this.selectedFilter,
+    required this.onReset,
+  });
+
+  final String selectedFilter;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final description = switch (selectedFilter) {
+      _ClosetScreenState._recentlyAddedFilter =>
+        'No pieces were added in the last 7 days.',
+      _ClosetScreenState._unusedFilter =>
+        'Every piece in your closet has already been used in a saved look.',
+      _ => 'No pieces match the selected filter right now.',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F8F7),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2EEEB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            selectedFilter,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: const Color(0xFF203032),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF6F8082),
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton(
+            onPressed: onReset,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF0A7A76),
+              side: const BorderSide(color: Color(0xFFBFD8D3)),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            child: const Text('Show all pieces'),
+          ),
+        ],
       ),
     );
   }
