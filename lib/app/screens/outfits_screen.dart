@@ -611,206 +611,20 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   Future<_SavedOutfitDraft?> _showSaveOutfitSheet(
     List<ClosetItemPreview> pieces,
   ) async {
-    final controller = TextEditingController(
-      text: 'Look ${_savedOutfits.length + 1}',
-    );
-    var selectedTags = _suggestTagsForOutfit(pieces);
-
-    final result = await showModalBottomSheet<_SavedOutfitDraft>(
+    return showModalBottomSheet<_SavedOutfitDraft>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final media = MediaQuery.of(context);
-        final keyboardInset = media.viewInsets.bottom;
-        final availableHeight = math.max(
-          0.0,
-          media.size.height - keyboardInset - media.padding.top - 28,
-        );
-        final maxHeight = math.min(media.size.height * 0.82, availableHeight);
-        final previewItems = pieces.take(4).toList();
-
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              top: false,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  14,
-                  keyboardInset > 0 ? 20 : 60,
-                  14,
-                  keyboardInset + 14,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: maxHeight),
-                    child: SingleChildScrollView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Center(
-                            child: Container(
-                              width: 42,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD8E5E1),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Save Outfit',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF203032),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Add a name and a few tags so you can find this look faster later.',
-                            style: TextStyle(
-                              color: Color(0xFF708082),
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: controller,
-                            textCapitalization: TextCapitalization.words,
-                            decoration: InputDecoration(
-                              labelText: 'Look name',
-                              filled: true,
-                              fillColor: const Color(0xFFF3F8F7),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            height: 82,
-                            child: Row(
-                              children: previewItems.map((item) {
-                                return Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(
-                                      right: item == previewItems.last ? 0 : 8,
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: Image.network(
-                                        item.imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return const DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              color: Color(0xFFEAF2F0),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Tags',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF203032),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _outfitTagSuggestions.map((tag) {
-                              final selected = selectedTags.contains(tag);
-                              return FilterChip(
-                                label: Text(tag),
-                                selected: selected,
-                                showCheckmark: false,
-                                onSelected: (_) {
-                                  setModalState(() {
-                                    if (selected) {
-                                      selectedTags =
-                                          selectedTags.where((item) => item != tag).toList();
-                                    } else {
-                                      selectedTags = _normalizeTags([...selectedTags, tag]);
-                                    }
-                                  });
-                                },
-                                backgroundColor: const Color(0xFFF2F8F7),
-                                selectedColor: const Color(0xFFDFF4EF),
-                                side: BorderSide(
-                                  color: selected
-                                      ? const Color(0xFF0A7A76)
-                                      : const Color(0xFFDCE7E4),
-                                ),
-                                labelStyle: TextStyle(
-                                  color: selected
-                                      ? const Color(0xFF0A7A76)
-                                      : const Color(0xFF6B7B7D),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              onPressed: () {
-                                final name = controller.text.trim();
-                                if (name.isEmpty) return;
-                                FocusScope.of(context).unfocus();
-                                Navigator.of(context).pop(
-                                  _SavedOutfitDraft(
-                                    name: name,
-                                    tags: _normalizeTags(selectedTags),
-                                  ),
-                                );
-                              },
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF0A7A76),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                              child: const Text('Save Look'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+        return _SaveOutfitSheet(
+          pieces: pieces,
+          initialName: 'Look ${_savedOutfits.length + 1}',
+          initialTags: _suggestTagsForOutfit(pieces),
+          tagSuggestions: _outfitTagSuggestions,
+          normalizeTags: _normalizeTags,
         );
       },
     );
-
-    controller.dispose();
-    return result;
   }
 
   List<String> _suggestTagsForOutfit(List<ClosetItemPreview> items) {
@@ -1978,6 +1792,228 @@ class _PlannerWeekdayLabel extends StatelessWidget {
           fontSize: 9,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.45,
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveOutfitSheet extends StatefulWidget {
+  const _SaveOutfitSheet({
+    required this.pieces,
+    required this.initialName,
+    required this.initialTags,
+    required this.tagSuggestions,
+    required this.normalizeTags,
+  });
+
+  final List<ClosetItemPreview> pieces;
+  final String initialName;
+  final List<String> initialTags;
+  final List<String> tagSuggestions;
+  final List<String> Function(Iterable<String>) normalizeTags;
+
+  @override
+  State<_SaveOutfitSheet> createState() => _SaveOutfitSheetState();
+}
+
+class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
+  late final TextEditingController _controller;
+  late List<String> _selectedTags;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+    _selectedTags = List<String>.from(widget.initialTags);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selectedTags.contains(tag)) {
+        _selectedTags = _selectedTags.where((item) => item != tag).toList();
+      } else {
+        _selectedTags = widget.normalizeTags([..._selectedTags, tag]);
+      }
+    });
+  }
+
+  void _submit() {
+    final name = _controller.text.trim();
+    if (name.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    Navigator.of(context).pop(
+      _SavedOutfitDraft(
+        name: name,
+        tags: widget.normalizeTags(_selectedTags),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboardInset = media.viewInsets.bottom;
+    final availableHeight = math.max(
+      0.0,
+      media.size.height - keyboardInset - media.padding.top - 28,
+    );
+    final maxHeight = math.min(media.size.height * 0.82, availableHeight);
+    final previewItems = widget.pieces.take(4).toList();
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          14,
+          keyboardInset > 0 ? 20 : 60,
+          14,
+          keyboardInset + 14,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: ListView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.all(18),
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD8E5E1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Save Outfit',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF203032),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Add a name and a few tags so you can find this look faster later.',
+                  style: TextStyle(
+                    color: Color(0xFF708082),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _controller,
+                  textCapitalization: TextCapitalization.words,
+                  onSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: 'Look name',
+                    filled: true,
+                    fillColor: const Color(0xFFF3F8F7),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 82,
+                  child: Row(
+                    children: previewItems.map((item) {
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: item == previewItems.last ? 0 : 8,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.network(
+                              item.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFEAF2F0),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Tags',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF203032),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.tagSuggestions.map((tag) {
+                    final selected = _selectedTags.contains(tag);
+                    return FilterChip(
+                      label: Text(tag),
+                      selected: selected,
+                      showCheckmark: false,
+                      onSelected: (_) => _toggleTag(tag),
+                      backgroundColor: const Color(0xFFF2F8F7),
+                      selectedColor: const Color(0xFFDFF4EF),
+                      side: BorderSide(
+                        color: selected
+                            ? const Color(0xFF0A7A76)
+                            : const Color(0xFFDCE7E4),
+                      ),
+                      labelStyle: TextStyle(
+                        color: selected
+                            ? const Color(0xFF0A7A76)
+                            : const Color(0xFF6B7B7D),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0A7A76),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: const Text('Save Look'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
