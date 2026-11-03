@@ -1100,11 +1100,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                     _OutfitHeader(
                       displayName: displayName,
                       onMenuPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const SettingsScreen(),
-                          ),
-                        );
+                        SettingsScreen.openFromMenu(context);
                       },
                     ),
                     const SizedBox(height: 18),
@@ -1124,7 +1120,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         fontWeight: FontWeight.w800,
                         height: 0.96,
                         letterSpacing: -1.6,
-                        color: const Color(0xFF213133),
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 14),

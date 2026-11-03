@@ -1,117 +1,20 @@
 # Stylex
 
-Stylex is a Flutter-based digital wardrobe app that helps users organize clothing pieces, generate outfit suggestions, and save looks for later. It combines closet management, weather-aware recommendations, and outfit building into a single mobile-first experience.
-
 ## Features
 
-- User authentication powered by Supabase
-- Digital closet for uploading and managing clothing items
-- Local image-based clothing analysis for category and color detection
-- Weather snapshot on the home screen with temperature and condition icon
-- Outfit of the day suggestions based on available closet items
-- Manual outfit builder for mixing and matching pieces
-- Saved looks with rename and detail view support
-- Settings screen for app preferences and account actions
+- **Digital closet:** Upload, organize, edit, and remove clothing items.
+- **Clothing detection:** Get on-device suggestions for garment type and color, with the option to correct item details.
+- **Outfit suggestions:** Generate looks from your closet and get weather-aware recommendations on Home.
+- **Outfit builder:** Mix and match pieces, save looks, and organize them with tags and favorites.
+- **Outfit planner:** Schedule saved looks on a calendar and add event details.
+- **Recent looks and closet insights:** Reuse looks selected from Home and find recently added or unused pieces.
+- **Accounts and appearance:** Sign in to a personal wardrobe and switch between light and dark mode.
 
-## Built With
+## Roadmap
 
-- [Flutter](https://flutter.dev/) for the cross-platform app
-- [Dart](https://dart.dev/) for application logic
-- [Supabase](https://supabase.com/) for authentication and backend data
-- `geolocator` for location-aware weather support
-- `image_picker` and `image` for clothing image capture and analysis
-- `shared_preferences` for lightweight local persistence
-
-## Project Structure
-
-```text
-lib/
-  app/
-    config/       # App configuration such as Supabase setup
-    models/       # Data models used across the app
-    screens/      # UI screens including home, closet, outfits, and settings
-    services/     # Business logic, weather, closet, and image analysis
-    view_models/  # Screen state and orchestration
-    widgets/      # Shared UI widgets
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Flutter SDK
-- Dart SDK
-- A Supabase project
-
-### 1. Install dependencies
-
-```bash
-flutter pub get
-```
-
-### 2. Configure Supabase
-
-Open `lib/app/config/supabase_config.dart` and set your project credentials:
-
-```dart
-static const String url = 'YOUR_SUPABASE_URL';
-static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
-```
-
-### 3. Apply the Supabase schema
-
-Run the SQL in `supabase/migrations/20260323_closet_user_isolation.sql` and `supabase/migrations/20260327_clothing_custom_name.sql` in your Supabase project. This creates the closet tables, the `closet-items` storage bucket, indexes, row-level security policies, and the custom item naming field so each user only has access to their own clothing data.
-
-### 4. Run the app
-
-```bash
-flutter run
-```
-
-## Running Locally on This Workspace
-
-This repository may live in a Windows path with spaces, which can interfere with some Flutter tooling. If that happens, use the helper scripts included in the project.
-
-### Option 1: Start the helper shell
-
-```powershell
-.\tools\stylex-shell.cmd
-```
-
-Then run:
-
-```powershell
-flutter clean
-flutter pub get
-flutter run
-```
-
-### Option 2: Use the Flutter wrapper directly
-
-```powershell
-.\tools\flutter.cmd --version
-.\tools\flutter.cmd clean
-.\tools\flutter.cmd pub get
-.\tools\flutter.cmd run
-```
-
-## Available Screens
-
-- Home
-- Closet
-- Add Closet Item
-- Outfit Maker
-- Settings
-- Style Preferences
-- Authentication and boot flow
-
-## Notes
-
-- Weather and outfit suggestions are cached during the active app session to avoid unnecessary refreshes when switching tabs.
-- Outfit suggestions use the closet inventory and rotate through different valid combinations when available.
-- Closet uploads are stored under a per-user storage path and are linked to the signed-in user through `clothing_items.user_id`.
-- The repository includes platform folders for Android, iOS, macOS, Windows, Linux, and web because this is a Flutter project.
-
-## Status
-
-Stylex is currently structured as an app prototype / student project with core wardrobe, outfit, and settings flows already in place.
+- **Account recovery:** Add password reset and improve email verification and sign-in feedback.
+- **Smoother navigation:** Refine page transitions, keyboard interactions, and image loading on physical devices.
+- **Better clothing recognition:** Evaluate a free, on-device model against the current rule-based detector while keeping manual corrections.
+- **Cloud sync:** Sync saved looks, favorites, and planner entries across devices.
+- **Smarter outfit planning:** Add occasion and clothing availability filters, reminders, and trip packing lists.
+- **Social sharing:** Let users share individual looks without exposing their entire wardrobe.

@@ -364,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.w800,
                             height: 0.95,
                             letterSpacing: -1.5,
-                            color: const Color(0xFF1F2B2D),
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -390,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 weather.message,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: const Color(0xFF5D6E70),
+                                  color: theme.colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -686,11 +686,7 @@ class _Header extends StatelessWidget {
       children: [
         IconButton(
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const SettingsScreen(),
-              ),
-            );
+            SettingsScreen.openFromMenu(context);
           },
           style: IconButton.styleFrom(
             backgroundColor: const Color(0xFFE8F5F2),
@@ -730,7 +726,7 @@ class _SectionLabel extends StatelessWidget {
           title,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF182628),
+            color: theme.colorScheme.onSurface,
           ),
         ),
         if (badge != null) ...[
@@ -770,11 +766,17 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final dark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
+    final accent = dark ? scheme.primary : const Color(0xFF0A8C87);
+
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF5FAF9),
+        color: dark ? scheme.surfaceContainer : const Color(0xFFF5FAF9),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE0ECE9)),
+        border: Border.all(
+          color: dark ? scheme.outlineVariant : const Color(0xFFE0ECE9),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -784,7 +786,7 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
             Text(
               eyebrow,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF0A8C87),
+                color: accent,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.45,
               ),
@@ -794,7 +796,7 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
               Text(
                 title!,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF1F2B2D),
+                  color: dark ? scheme.onSurface : const Color(0xFF1F2B2D),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -808,8 +810,10 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onAction,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0A8C87),
-                    side: const BorderSide(color: Color(0xFFBFE2DD)),
+                    foregroundColor: accent,
+                    side: BorderSide(
+                      color: dark ? scheme.outline : const Color(0xFFBFE2DD),
+                    ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 10,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_appearance.dart';
+
 class SoftBackground extends StatelessWidget {
   const SoftBackground({required this.child, super.key});
 
@@ -7,6 +9,9 @@ class SoftBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isDark) {
+      return const _DarkBackground().wrap(child);
+    }
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -37,6 +42,21 @@ class SoftBackground extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DarkBackground {
+  const _DarkBackground();
+
+  Widget wrap(Widget child) => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF183030), Color(0xFF101C1C)],
+      ),
+    ),
+    child: child,
+  );
 }
 
 class BlurBlob extends StatelessWidget {
@@ -145,7 +165,10 @@ class AppPanel extends StatelessWidget {
       height: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.86),
+        color: context.adaptive(
+          Colors.white.withValues(alpha: 0.86),
+          const Color(0xFF142323),
+        ),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: child,

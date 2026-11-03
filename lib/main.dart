@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/config/supabase_config.dart';
 import 'app/screens/boot_screen.dart';
+import 'app/widgets/app_appearance.dart';
 import 'app/widgets/onboarding_shell.dart';
 
 Future<void> main() async {
@@ -15,6 +16,7 @@ Future<void> main() async {
     );
   }
 
+  await AppAppearance.load();
   runApp(const StylexApp());
 }
 
@@ -24,25 +26,73 @@ class StylexApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const seed = Color(0xFF0B8A84);
+    final transitions = PageTransitionsTheme(
+      builders: {
+        for (final platform in TargetPlatform.values)
+          platform: const _StylexPageTransition(),
+      },
+    );
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Stylex',
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF3F8F6),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.light,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppAppearance.mode,
+      builder: (context, mode, _) => MaterialApp(
+        themeMode: mode,
+        darkTheme: ThemeData(
+          pageTransitionsTheme: transitions,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: seed,
+            brightness: Brightness.dark,
+          ),
+          scaffoldBackgroundColor: const Color(0xFF101C1C),
         ),
-        textTheme: ThemeData.light().textTheme.apply(
-              bodyColor: const Color(0xFF2E3B3D),
-              displayColor: const Color(0xFF2E3B3D),
-            ),
+        debugShowCheckedModeBanner: false,
+        title: 'Stylex',
+        theme: ThemeData(
+          pageTransitionsTheme: transitions,
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFFF3F8F6),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: seed,
+            brightness: Brightness.light,
+          ),
+          textTheme: ThemeData.light().textTheme.apply(
+                bodyColor: const Color(0xFF2E3B3D),
+                displayColor: const Color(0xFF2E3B3D),
+              ),
+        ),
+        home: SupabaseConfig.isConfigured
+            ? const BootScreen()
+            : const SupabaseSetupScreen(),
       ),
-      home: SupabaseConfig.isConfigured
-          ? const BootScreen()
-          : const SupabaseSetupScreen(),
+    );
+  }
+}
+
+class _StylexPageTransition extends PageTransitionsBuilder {
+  const _StylexPageTransition();
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 260);
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+
+    final progress = animation.drive(CurveTween(curve: Curves.easeOutCubic));
+    return FadeTransition(
+      opacity: progress,
+      child: SlideTransition(
+        position: progress.drive(
+          Tween(begin: const Offset(0.035, 0), end: Offset.zero),
+        ),
+        child: child,
+      ),
     );
   }
 }
@@ -66,7 +116,6 @@ class SupabaseSetupScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF243234),
                 ),
               ),
               SizedBox(height: 12),
@@ -75,7 +124,6 @@ class SupabaseSetupScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   height: 1.5,
-                  color: Color(0xFF5E6E70),
                 ),
               ),
               SizedBox(height: 16),

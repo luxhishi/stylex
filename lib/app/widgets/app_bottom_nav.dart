@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_appearance.dart';
+
 enum AppTab { home, closet, outfits }
 
 class StylexBottomNav extends StatelessWidget {
@@ -34,7 +36,10 @@ class StylexBottomNav extends StatelessWidget {
         Expanded(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: const Color(0xFFF1FAF7),
+              color: context.adaptive(
+                const Color(0xFFF1FAF7),
+                const Color(0xFF203333),
+              ),
               borderRadius: BorderRadius.circular(22),
               boxShadow: const [
                 BoxShadow(
@@ -120,14 +125,19 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = selected ? const Color(0xFF0A7A76) : const Color(0xFF8B9C9F);
+    final scheme = Theme.of(context).colorScheme;
+    final active = selected
+        ? context.adaptive(const Color(0xFF0A7A76), scheme.onPrimaryContainer)
+        : context.adaptive(const Color(0xFF8B9C9F), scheme.onSurfaceVariant);
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFCFF6EE) : Colors.transparent,
+          color: selected
+              ? context.adaptive(const Color(0xFFCFF6EE), scheme.primaryContainer)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Padding(

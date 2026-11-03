@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/app_appearance.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
@@ -12,6 +14,46 @@ import 'outfits_screen.dart';
 import 'style_preference_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
+  static void openFromMenu(BuildContext context) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 280);
+    Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        transitionDuration: duration,
+        reverseTransitionDuration: duration,
+        pageBuilder: (_, _, _) => const SettingsScreen(),
+        transitionsBuilder: (_, animation, _, child) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).chain(CurveTween(curve: Curves.easeInOutCubic)).animate(animation),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  static void openFromMenu(BuildContext context) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 280);
+    Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        transitionDuration: duration,
+        reverseTransitionDuration: duration,
+        pageBuilder: (_, _, _) => const SettingsScreen(),
+        transitionsBuilder: (_, animation, _, child) => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).chain(CurveTween(curve: Curves.easeInOutCubic)).animate(animation),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   const SettingsScreen({super.key});
 
   @override
@@ -136,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Settings',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF243335),
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -204,6 +246,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsCard(
                       child: Column(
                         children: [
+                          _SettingsSwitchTile(
+                            icon: Icons.dark_mode_outlined,
+                            iconBackground: const Color(0xFFE4F7F1),
+                            iconColor: const Color(0xFF0A7A76),
+                            title: 'Dark mode',
+                            subtitle: 'Use a darker appearance',
+                            value: context.isDark,
+                            onChanged: AppAppearance.setDark,
+                          ),
+                          const _TileDivider(),
                           _SettingsSwitchTile(
                             icon: Icons.notifications_rounded,
                             iconBackground: const Color(0xFFE4F7F1),
@@ -416,9 +468,17 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F6),
+        color: context.adaptive(
+          const Color(0xFFF4F6F6),
+          const Color(0xFF203333),
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5ECEB)),
+        border: Border.all(
+          color: context.adaptive(
+            const Color(0xFFE5ECEB),
+            Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -468,8 +528,11 @@ class _SettingsTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Color(0xFF253537),
+                    style: TextStyle(
+                      color: context.adaptive(
+                        const Color(0xFF253537),
+                        Theme.of(context).colorScheme.onSurface,
+                      ),
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                     ),
@@ -477,8 +540,11 @@ class _SettingsTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF8B999B),
+                    style: TextStyle(
+                      color: context.adaptive(
+                        const Color(0xFF8B999B),
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -546,8 +612,11 @@ class _SettingsSwitchTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Color(0xFF253537),
+                  style: TextStyle(
+                    color: context.adaptive(
+                      const Color(0xFF253537),
+                      Theme.of(context).colorScheme.onSurface,
+                    ),
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -555,8 +624,11 @@ class _SettingsSwitchTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF8B999B),
+                  style: TextStyle(
+                    color: context.adaptive(
+                      const Color(0xFF8B999B),
+                      Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),

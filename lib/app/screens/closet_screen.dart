@@ -880,11 +880,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                       children: [
                         IconButton(
                           onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const SettingsScreen(),
-                              ),
-                            );
+                            SettingsScreen.openFromMenu(context);
                           },
                           style: IconButton.styleFrom(
                             backgroundColor: const Color(0xFFE8F5F2),
@@ -936,7 +932,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         fontWeight: FontWeight.w800,
                         height: 0.95,
                         letterSpacing: -1.6,
-                        color: const Color(0xFF203032),
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 18),
