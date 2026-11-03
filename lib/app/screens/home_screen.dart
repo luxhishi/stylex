@@ -501,16 +501,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             child: FilledButton.icon(
-                              onPressed: () async {
-                                await _viewModel.load(forceRefresh: true);
-                                if (!context.mounted) return;
+                              onPressed: () {
                                 if (hasClosetItems) {
                                   setState(() {
                                     _suggestionSeed++;
                                     _refreshSuggestion();
                                     _cachedClosetItems = _closetItems;
                                   });
-                                  await _loadPlannedOutfitForToday();
                                 } else if (!_isLoadingCloset) {
                                   Navigator.of(context).pushReplacement(
                                     MaterialPageRoute<void>(
@@ -530,19 +527,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               icon: Icon(
-                                weather.isLoading
-                                    ? Icons.sync_rounded
-                                    : Icons.refresh_rounded,
+                                Icons.refresh_rounded,
                                 size: 18,
                               ),
                               label: Text(
-                                weather.isLoading
-                                    ? 'Refreshing Style Weather'
-                                    : hasClosetItems
-                                        ? 'Get Another Suggestion'
-                                        : _isLoadingCloset
-                                            ? 'Loading Your Closet'
-                                            : 'Go To Closet',
+                                hasClosetItems
+                                    ? 'Get Another Suggestion'
+                                    : _isLoadingCloset
+                                        ? 'Loading Your Closet'
+                                        : 'Go To Closet',
                               ),
                             ),
                           ),
