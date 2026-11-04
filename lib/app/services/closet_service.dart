@@ -70,6 +70,9 @@ class ClosetService {
       }
     }
 
+    final previewUrls = await _resolvePreviewUrls(
+      itemsResponse.map((item) => item['image_url'] as String? ?? ''),
+    );
     final previews = <ClosetItemPreview>[];
 
     for (final item in itemsResponse) {
@@ -78,7 +81,7 @@ class ClosetService {
       if (id == null || rawUrl.isEmpty) continue;
 
       final analysis = analysisByItemId[id];
-      final resolvedUrl = await _resolvePreviewUrl(rawUrl);
+      final resolvedUrl = previewUrls[rawUrl] ?? rawUrl;
       previews.add(
         ClosetItemPreview(
           id: id,
@@ -926,19 +929,49 @@ class ClosetService {
     return sanitized.substring(dotIndex + 1).toLowerCase();
   }
 
-  Future<String> _resolvePreviewUrl(String rawUrl) async {
-    final storagePath = _storagePathFromValue(rawUrl);
-    if (storagePath == null) return rawUrl;
-
-    try {
-      return await _supabase.storage
-          .from(storageBucket)
-          .createSignedUrl(storagePath, 60 * 60);
-    } on StorageException {
-      return _looksLikeUrl(rawUrl)
-          ? rawUrl
-          : _supabase.storage.from(storageBucket).getPublicUrl(storagePath);
+  Future<Map<String, String>> _resolvePreviewUrls(
+    Iterable<String> rawUrls,
+  ) async {
+    final rawToPath = <String, String>{};
+    final resolved = <String, String>{};
+    for (final raw in rawUrls.where((url) => url.isNotEmpty)) {
+      final path = _storagePathFromValue(raw);
+      if (path == null) {
+        resolved[raw] = raw;
+      } else {
+        rawToPath[raw] = path;
+      }
     }
+
+    final paths = rawToPath.values.toSet().toList();
+    final signedByPath = <String, String>{};
+    // Bound request size while avoiding one network round trip per photo.
+    const batchSize = 100;
+    for (var start = 0; start < paths.length; start += batchSize) {
+      final end = (start + batchSize).clamp(0, paths.length);
+      try {
+        final signed = await _supabase.storage
+            .from(storageBucket)
+            .createSignedUrls(paths.sublist(start, end), 60 * 60);
+        for (final entry in signed) {
+          if (entry.signedUrl.isNotEmpty) {
+            signedByPath[entry.path] = entry.signedUrl;
+          }
+        }
+      } on StorageException {
+        // A failed batch must not hide the rest of the closet.
+      }
+    }
+    for (final entry in rawToPath.entries) {
+      resolved[entry.key] =
+          signedByPath[entry.value] ??
+          (_looksLikeUrl(entry.key)
+              ? entry.key
+              : _supabase.storage
+                    .from(storageBucket)
+                    .getPublicUrl(entry.value));
+    }
+    return resolved;
   }
 
   String? _storagePathFromValue(String value) {

@@ -36,14 +36,16 @@ class StylexBottomNav extends StatelessWidget {
         Expanded(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: context.adaptive(
-                const Color(0xFFF1FAF7),
-                const Color(0xFF203333),
+              color: context.nightSurface(
+                context.adaptive(
+                  const Color(0xFFF1FAF7),
+                  const Color(0xFF203333),
+                ),
               ),
               borderRadius: BorderRadius.circular(22),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x120A7A76),
+                  color: context.nightSurface(Color(0x120A7A76)),
                   blurRadius: 18,
                   offset: Offset(0, 8),
                 ),
@@ -72,16 +74,19 @@ class StylexBottomNav extends StatelessWidget {
         if (showAddButton) ...[
           const SizedBox(width: 12),
           DecoratedBox(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF1DA79E), Color(0xFF0A7A76)],
+                colors: context.nightSurfaces([
+                  Color(0xFF1DA79E),
+                  Color(0xFF0A7A76),
+                ]),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0x331DA79E),
+                  color: context.nightSurface(Color(0x331DA79E)),
                   blurRadius: 18,
                   offset: Offset(0, 10),
                 ),
@@ -89,9 +94,12 @@ class StylexBottomNav extends StatelessWidget {
             ),
             child: IconButton(
               onPressed: onAddPressed,
-              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              icon: Icon(
+                Icons.add_rounded,
+                color: context.nightInk(Colors.white),
+              ),
               style: IconButton.styleFrom(
-                backgroundColor: Colors.transparent,
+                backgroundColor: context.nightSurface(Colors.transparent),
                 padding: const EdgeInsets.all(16),
               ),
             ),
@@ -135,9 +143,14 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: selected
-              ? context.adaptive(const Color(0xFFCFF6EE), scheme.primaryContainer)
-              : Colors.transparent,
+          color: context.nightSurface(
+            selected
+                ? context.adaptive(
+                    const Color(0xFFCFF6EE),
+                    scheme.primaryContainer,
+                  )
+                : Colors.transparent,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Padding(
@@ -145,12 +158,12 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: active, size: 18),
+              Icon(icon, color: context.nightInk(active), size: 18),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: active,
+                  color: context.nightInk(active),
                   fontSize: 9,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.7,

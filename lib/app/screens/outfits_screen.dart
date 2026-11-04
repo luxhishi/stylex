@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../widgets/app_appearance.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -192,9 +194,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     await prefs.setString(
       _plannedOutfitsKey,
       jsonEncode(
-        _plannedEventsByDate.map(
-          (key, value) => MapEntry(key, value.toJson()),
-        ),
+        _plannedEventsByDate.map((key, value) => MapEntry(key, value.toJson())),
       ),
     );
     HomeScreen.clearSessionCache();
@@ -242,11 +242,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       _selectedLayer != null;
 
   List<ClosetItemPreview> get _currentOutfitItems => [
-        _selectedTop,
-        _selectedBottom,
-        _selectedShoe,
-        _selectedLayer,
-      ].whereType<ClosetItemPreview>().toList();
+    _selectedTop,
+    _selectedBottom,
+    _selectedShoe,
+    _selectedLayer,
+  ].whereType<ClosetItemPreview>().toList();
 
   List<String> get _savedLookTags {
     final tags = <String>[];
@@ -330,10 +330,10 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
 
     setState(() {
       _selectedTop = _findByCategories(suggestion, const ['top', 'tops']);
-      _selectedBottom = _findByCategories(
-        suggestion,
-        const ['bottom', 'bottoms'],
-      );
+      _selectedBottom = _findByCategories(suggestion, const [
+        'bottom',
+        'bottoms',
+      ]);
       _selectedShoe = _findByCategories(suggestion, const ['shoe', 'shoes']);
       _selectedLayer = _findByCategories(suggestion, const ['outerwear']);
     });
@@ -474,7 +474,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Some pieces in this saved outfit are no longer available.'),
+          content: Text(
+            'Some pieces in this saved outfit are no longer available.',
+          ),
         ),
       );
       return;
@@ -486,7 +488,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   void _applyRecentLook(_RecentLookBundle bundle) {
     _applyOutfitItems(bundle.items);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${bundle.entry.title} is now in your workspace.')),
+      SnackBar(
+        content: Text('${bundle.entry.title} is now in your workspace.'),
+      ),
     );
   }
 
@@ -501,9 +505,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     final normalizedTags = _normalizeTags(newTags);
     setState(() {
       _savedOutfits = _sortSavedOutfits(
-        _savedOutfits.map((saved) => saved.createdAt == outfit.createdAt
-            ? saved.copyWith(name: trimmed, tags: normalizedTags)
-            : saved),
+        _savedOutfits.map(
+          (saved) => saved.createdAt == outfit.createdAt
+              ? saved.copyWith(name: trimmed, tags: normalizedTags)
+              : saved,
+        ),
       );
       if (!_savedLookTags.contains(_selectedSavedLookTag)) {
         _selectedSavedLookTag = 'All';
@@ -518,9 +524,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
   }) async {
     setState(() {
       _savedOutfits = _sortSavedOutfits(
-        _savedOutfits.map((saved) => saved.createdAt == outfit.createdAt
-            ? saved.copyWith(isFavorite: isFavorite)
-            : saved),
+        _savedOutfits.map(
+          (saved) => saved.createdAt == outfit.createdAt
+              ? saved.copyWith(isFavorite: isFavorite)
+              : saved,
+        ),
       );
       if (!_savedLookTags.contains(_selectedSavedLookTag)) {
         _selectedSavedLookTag = 'All';
@@ -591,9 +599,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '${outfit.name} saved for ${_formatReadableDate(date)}.',
-        ),
+        content: Text('${outfit.name} saved for ${_formatReadableDate(date)}.'),
       ),
     );
   }
@@ -614,7 +620,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     return showModalBottomSheet<_SavedOutfitDraft>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.nightSurface(Colors.transparent),
       builder: (context) {
         return _SaveOutfitSheet(
           pieces: pieces,
@@ -629,7 +635,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
 
   List<String> _suggestTagsForOutfit(List<ClosetItemPreview> items) {
     final titles = items.map((item) => item.title.toLowerCase()).join(' ');
-    final colors = items.map((item) => item.primaryColor.toLowerCase()).toList();
+    final colors = items
+        .map((item) => item.primaryColor.toLowerCase())
+        .toList();
     const neutralColors = {
       'black',
       'white',
@@ -713,7 +721,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     final result = await showModalBottomSheet<_PlannerDaySheetResult>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.nightSurface(Colors.transparent),
       builder: (context) {
         return _PlannerDaySheet(
           date: date,
@@ -784,7 +792,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Some pieces in this saved outfit are no longer available.'),
+          content: Text(
+            'Some pieces in this saved outfit are no longer available.',
+          ),
         ),
       );
       return;
@@ -797,7 +807,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.nightSurface(Colors.transparent),
       builder: (context) {
         final theme = Theme.of(context);
         final media = MediaQuery.of(context);
@@ -806,10 +816,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
           0.0,
           media.size.height - keyboardInset - media.padding.top - 28,
         );
-        final maxHeight = math.min(
-          media.size.height * 0.82,
-          availableHeight,
-        );
+        final maxHeight = math.min(media.size.height * 0.82, availableHeight);
 
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -824,7 +831,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: context.nightSurface(Colors.white),
                     borderRadius: BorderRadius.circular(28),
                   ),
                   child: ConstrainedBox(
@@ -842,19 +849,21 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               width: 42,
                               height: 4,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFD8E5E1),
+                                color: context.nightSurface(
+                                  const Color(0xFFD8E5E1),
+                                ),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            isFavorite
-                                ? 'Favorite Look'
-                                : 'Saved Look Details',
+                            isFavorite ? 'Favorite Look' : 'Saved Look Details',
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF203032),
+                              color: context.nightInk(
+                                const Color(0xFF203032),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -870,16 +879,21 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 );
                               },
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: isFavorite
-                                    ? const Color(0xFFD05D79)
-                                    : const Color(0xFF0A7A76),
-                                side: BorderSide(
-                                  color: isFavorite
-                                      ? const Color(0xFFF0CFD8)
-                                      : const Color(0xFFCFE4DE),
+                                foregroundColor: context.nightInk(
+                                  isFavorite
+                                      ? const Color(0xFFD05D79)
+                                      : const Color(0xFF0A7A76),
                                 ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 13),
+                                side: BorderSide(
+                                  color: context.nightOutline(
+                                    isFavorite
+                                        ? const Color(0xFFF0CFD8)
+                                        : const Color(0xFFCFE4DE),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 13,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
                                 ),
@@ -891,9 +905,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 size: 18,
                               ),
                               label: Text(
-                                isFavorite
-                                    ? 'Favorited'
-                                    : 'Mark as Favorite',
+                                isFavorite ? 'Favorited' : 'Mark as Favorite',
                               ),
                             ),
                           ),
@@ -903,7 +915,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             decoration: InputDecoration(
                               labelText: 'Look name',
                               filled: true,
-                              fillColor: const Color(0xFFF3F8F7),
+                              fillColor: context.nightSurface(
+                                const Color(0xFFF3F8F7),
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 borderSide: BorderSide.none,
@@ -911,11 +925,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             ),
                           ),
                           const SizedBox(height: 14),
-                          const Text(
+                          Text(
                             'Tags',
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF203032),
+                              color: context.nightInk(Color(0xFF203032)),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -935,22 +949,32 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                           .where((item) => item != tag)
                                           .toList();
                                     } else {
-                                      selectedTags =
-                                          _normalizeTags([...selectedTags, tag]);
+                                      selectedTags = _normalizeTags([
+                                        ...selectedTags,
+                                        tag,
+                                      ]);
                                     }
                                   });
                                 },
-                                backgroundColor: const Color(0xFFF2F8F7),
-                                selectedColor: const Color(0xFFDFF4EF),
+                                backgroundColor: context.nightSurface(
+                                  const Color(0xFFF2F8F7),
+                                ),
+                                selectedColor: context.nightSurface(
+                                  const Color(0xFFDFF4EF),
+                                ),
                                 side: BorderSide(
-                                  color: selected
-                                      ? const Color(0xFF0A7A76)
-                                      : const Color(0xFFDCE7E4),
+                                  color: context.nightOutline(
+                                    selected
+                                        ? const Color(0xFF0A7A76)
+                                        : const Color(0xFFDCE7E4),
+                                  ),
                                 ),
                                 labelStyle: TextStyle(
-                                  color: selected
-                                      ? const Color(0xFF0A7A76)
-                                      : const Color(0xFF6B7B7D),
+                                  color: context.nightInk(
+                                    selected
+                                        ? const Color(0xFF0A7A76)
+                                        : const Color(0xFF6B7B7D),
+                                  ),
                                   fontWeight: FontWeight.w700,
                                   fontSize: 11,
                                 ),
@@ -964,11 +988,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               itemCount: items.length,
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.9,
-                              ),
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 0.9,
+                                  ),
                               itemBuilder: (context, index) {
                                 final item = items[index];
                                 return _SavedLookDetailCard(item: item);
@@ -984,14 +1008,23 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 await _pickDateForOutfit(outfit);
                               },
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFFDFF4EF),
-                                foregroundColor: const Color(0xFF0A7A76),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: context.nightSurface(
+                                  const Color(0xFFDFF4EF),
+                                ),
+                                foregroundColor: context.nightInk(
+                                  const Color(0xFF0A7A76),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
-                              icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                              icon: const Icon(
+                                Icons.calendar_month_rounded,
+                                size: 18,
+                              ),
                               label: const Text('Save To Date'),
                             ),
                           ),
@@ -1002,7 +1035,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 child: OutlinedButton(
                                   onPressed: () async {
                                     final newName = controller.text;
-                                    final newTags = List<String>.from(selectedTags);
+                                    final newTags = List<String>.from(
+                                      selectedTags,
+                                    );
                                     Navigator.of(context).pop();
                                     await _updateSavedOutfit(
                                       outfit,
@@ -1011,9 +1046,17 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                     );
                                   },
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF0A7A76),
-                                    side: const BorderSide(color: Color(0xFFCFE4DE)),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    foregroundColor: context.nightInk(
+                                      const Color(0xFF0A7A76),
+                                    ),
+                                    side: BorderSide(
+                                      color: context.nightOutline(
+                                        Color(0xFFCFE4DE),
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(999),
                                     ),
@@ -1029,9 +1072,15 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                     Navigator.of(context).pop();
                                   },
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0A7A76),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    backgroundColor: context.nightSurface(
+                                      const Color(0xFF0A7A76),
+                                    ),
+                                    foregroundColor: context.nightInk(
+                                      Colors.white,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(999),
                                     ),
@@ -1073,9 +1122,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${tab.name} is coming soon.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${tab.name} is coming soon.')));
   }
 
   @override
@@ -1107,7 +1156,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                     Text(
                       'WORKSPACE',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFF9DAAAC),
+                        color: context.nightInk(const Color(0xFF9DAAAC)),
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.8,
                       ),
@@ -1120,7 +1169,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         fontWeight: FontWeight.w800,
                         height: 0.96,
                         letterSpacing: -1.6,
-                        color: theme.colorScheme.onSurface,
+                        color: context.nightInk(
+                          theme.colorScheme.onSurface,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1128,16 +1179,25 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: _hasCurrentOutfit ? _clearCurrentOutfit : null,
+                            onPressed: _hasCurrentOutfit
+                                ? _clearCurrentOutfit
+                                : null,
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF5B6B6D),
-                              side: const BorderSide(color: Color(0xFFD4E2DE)),
+                              foregroundColor: context.nightInk(
+                                const Color(0xFF5B6B6D),
+                              ),
+                              side: BorderSide(
+                                color: context.nightOutline(Color(0xFFD4E2DE)),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(999),
                               ),
                             ),
-                            icon: const Icon(Icons.layers_clear_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.layers_clear_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Clear'),
                           ),
                         ),
@@ -1146,20 +1206,22 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                           child: FilledButton.icon(
                             onPressed: _isSaving ? null : _saveCurrentOutfit,
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF0A7A76),
-                              foregroundColor: Colors.white,
+                              backgroundColor: context.nightSurface(
+                                const Color(0xFF0A7A76),
+                              ),
+                              foregroundColor: context.nightInk(Colors.white),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(999),
                               ),
                             ),
                             icon: _isSaving
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 16,
                                     height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.white,
+                                      color: context.nightInk(Colors.white),
                                     ),
                                   )
                                 : const Icon(Icons.bookmark_rounded, size: 18),
@@ -1180,14 +1242,16 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 'Your Closet',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF233234),
+                                  color: context.nightInk(
+                                    const Color(0xFF233234),
+                                  ),
                                 ),
                               ),
                               const Spacer(),
-                              const Icon(
+                              Icon(
                                 Icons.tune_rounded,
                                 size: 18,
-                                color: Color(0xFF8EA0A2),
+                                color: context.nightInk(Color(0xFF8EA0A2)),
                               ),
                             ],
                           ),
@@ -1197,7 +1261,8 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             child: ListView.separated(
                               scrollDirection: Axis.horizontal,
                               itemCount: _filters.length,
-                              separatorBuilder: (_, _) => const SizedBox(width: 8),
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 8),
                               itemBuilder: (context, index) {
                                 final filter = _filters[index];
                                 final selected = filter == _selectedFilter;
@@ -1209,20 +1274,28 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                     setState(() => _selectedFilter = filter);
                                   },
                                   labelStyle: TextStyle(
-                                    color: selected
-                                        ? Colors.white
-                                        : const Color(0xFF7C8D90),
+                                    color: context.nightInk(
+                                      selected
+                                          ? Colors.white
+                                          : const Color(0xFF7C8D90),
+                                    ),
                                     fontSize: 10,
                                     fontWeight: FontWeight.w800,
                                   ),
-                                  backgroundColor: const Color(0xFFEAF3F1),
-                                  selectedColor: const Color(0xFF0A7A76),
+                                  backgroundColor: context.nightSurface(
+                                    const Color(0xFFEAF3F1),
+                                  ),
+                                  selectedColor: context.nightSurface(
+                                    const Color(0xFF0A7A76),
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(9),
                                     side: BorderSide(
-                                      color: selected
-                                          ? const Color(0xFF0A7A76)
-                                          : const Color(0xFFDCE9E5),
+                                      color: context.nightOutline(
+                                        selected
+                                            ? const Color(0xFF0A7A76)
+                                            : const Color(0xFFDCE9E5),
+                                      ),
                                     ),
                                   ),
                                 );
@@ -1231,11 +1304,13 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                           ),
                           const SizedBox(height: 12),
                           if (_isLoading)
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.symmetric(vertical: 40),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF0A7A76),
+                                  color: context.nightInk(
+                                    Color(0xFF0A7A76),
+                                  ),
                                 ),
                               ),
                             )
@@ -1248,11 +1323,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                childAspectRatio: 0.72,
-                              ),
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 0.72,
+                                  ),
                               itemBuilder: (context, index) {
                                 final item = _filteredItems[index];
                                 final selected = [
@@ -1274,8 +1349,11 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                     const SizedBox(height: 16),
                     DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFD9EEFF), Color(0xFFEFF8FF)],
+                        gradient: LinearGradient(
+                          colors: context.nightSurfaces([
+                            Color(0xFFD9EEFF),
+                            Color(0xFFEFF8FF),
+                          ]),
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1292,12 +1370,14 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                   width: 26,
                                   height: 26,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.8),
+                                    color: context.nightSurface(
+                                      Colors.white.withValues(alpha: 0.8),
+                                    ),
                                     borderRadius: BorderRadius.circular(9),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.auto_awesome_rounded,
-                                    color: Color(0xFF267DA7),
+                                    color: context.nightInk(Color(0xFF267DA7)),
                                     size: 15,
                                   ),
                                 ),
@@ -1305,7 +1385,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                 Text(
                                   'STYLE AI',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: const Color(0xFF287CA5),
+                                    color: context.nightInk(
+                                      const Color(0xFF287CA5),
+                                    ),
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.1,
                                   ),
@@ -1318,7 +1400,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                   ? 'You are building a look'
                                   : 'Stuck on a look?',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: const Color(0xFF1E4960),
+                                color: context.nightInk(
+                                  const Color(0xFF1E4960),
+                                ),
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -1326,7 +1410,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             Text(
                               'Let our AI stylist suggest a complete outfit based on your closet palette and wardrobe balance.',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF5A7890),
+                                color: context.nightInk(
+                                  const Color(0xFF5A7890),
+                                ),
                                 height: 1.45,
                               ),
                             ),
@@ -1334,8 +1420,10 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             FilledButton(
                               onPressed: _generateOutfit,
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF20465C),
-                                foregroundColor: Colors.white,
+                                backgroundColor: context.nightSurface(
+                                  const Color(0xFF20465C),
+                                ),
+                                foregroundColor: context.nightInk(Colors.white),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 14,
@@ -1360,14 +1448,18 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               'Recent Looks',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF233234),
+                                color: context.nightInk(
+                                  const Color(0xFF233234),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               'Looks you chose from Home show up here so you can reuse them quickly.',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF6F8082),
+                                color: context.nightInk(
+                                  const Color(0xFF6F8082),
+                                ),
                                 height: 1.45,
                               ),
                             ),
@@ -1402,7 +1494,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               'Current Look',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF233234),
+                                color: context.nightInk(
+                                  const Color(0xFF233234),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -1432,7 +1526,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               'Saved Looks',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF233234),
+                                color: context.nightInk(
+                                  const Color(0xFF233234),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -1446,7 +1542,8 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                       const SizedBox(width: 8),
                                   itemBuilder: (context, index) {
                                     final tag = _savedLookTags[index];
-                                    final selected = tag == _selectedSavedLookTag;
+                                    final selected =
+                                        tag == _selectedSavedLookTag;
                                     return ChoiceChip(
                                       label: Text(tag),
                                       selected: selected,
@@ -1457,20 +1554,28 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                         });
                                       },
                                       labelStyle: TextStyle(
-                                        color: selected
-                                            ? Colors.white
-                                            : const Color(0xFF7C8D90),
+                                        color: context.nightInk(
+                                          selected
+                                              ? Colors.white
+                                              : const Color(0xFF7C8D90),
+                                        ),
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
                                       ),
-                                      backgroundColor: const Color(0xFFEAF3F1),
-                                      selectedColor: const Color(0xFF0A7A76),
+                                      backgroundColor: context.nightSurface(
+                                        const Color(0xFFEAF3F1),
+                                      ),
+                                      selectedColor: context.nightSurface(
+                                        const Color(0xFF0A7A76),
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(9),
                                         side: BorderSide(
-                                          color: selected
-                                              ? const Color(0xFF0A7A76)
-                                              : const Color(0xFFDCE9E5),
+                                          color: context.nightOutline(
+                                            selected
+                                                ? const Color(0xFF0A7A76)
+                                                : const Color(0xFFDCE9E5),
+                                          ),
                                         ),
                                       ),
                                     );
@@ -1481,12 +1586,13 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             ],
                             if (_visibleSavedOutfits.isEmpty)
                               Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 child: Text(
                                   _savedLooksEmptyMessage,
-                                  style: const TextStyle(
-                                    color: Color(0xFF7D8D90),
+                                  style: TextStyle(
+                                    color: context.nightInk(Color(0xFF7D8D90)),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1501,7 +1607,9 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                       const SizedBox(width: 12),
                                   itemBuilder: (context, index) {
                                     final saved = _visibleSavedOutfits[index];
-                                    final items = _resolveSavedOutfitItems(saved);
+                                    final items = _resolveSavedOutfitItems(
+                                      saved,
+                                    );
                                     return _SavedLookCard(
                                       outfit: saved,
                                       items: items,
@@ -1520,14 +1628,19 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                'Outfit Calendar',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF233234),
+                              Expanded(
+                                child: Text(
+                                  'Outfit Calendar',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: context.nightInk(
+                                      const Color(0xFF233234),
+                                    ),
+                                  ),
                                 ),
                               ),
-                              const Spacer(),
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -1544,14 +1657,22 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                   height: 28,
                                 ),
                                 icon: const Icon(Icons.chevron_left_rounded),
-                                color: const Color(0xFF6E8082),
+                                color: context.nightInk(
+                                  const Color(0xFF6E8082),
+                                ),
                               ),
                               const SizedBox(width: 2),
-                              Text(
-                                '${_monthLabel(_plannerMonth)} ${_plannerMonth.year}',
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF233234),
+                              Flexible(
+                                child: Text(
+                                  '${_monthLabel(_plannerMonth)} ${_plannerMonth.year}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: context.nightInk(
+                                      const Color(0xFF233234),
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 2),
@@ -1571,71 +1692,118 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                                   height: 28,
                                 ),
                                 icon: const Icon(Icons.chevron_right_rounded),
-                                color: const Color(0xFF6E8082),
+                                color: context.nightInk(
+                                  const Color(0xFF6E8082),
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           LayoutBuilder(
-                              builder: (context, constraints) {
-                                final crossAxisSpacing =
-                                    constraints.maxWidth < 360 ? 4.0 : 6.0;
-                                final cellWidth =
-                                    (constraints.maxWidth - (crossAxisSpacing * 6)) / 7;
-                                final cellHeight = math.max(
-                                  36.0,
-                                  math.min(48.0, cellWidth * 0.82),
-                                );
+                            builder: (context, constraints) {
+                              final crossAxisSpacing =
+                                  constraints.maxWidth < 360 ? 4.0 : 6.0;
+                              final cellWidth =
+                                  (constraints.maxWidth -
+                                      (crossAxisSpacing * 6)) /
+                                  7;
+                              final cellHeight = math.max(
+                                36.0,
+                                math.min(48.0, cellWidth * 0.82),
+                              );
 
-                                return Column(
-                                  children: [
-                                    const Row(
-                                      children: [
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Sun')),
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Mon')),
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Tue')),
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Wed')),
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Thu')),
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Fri')),
-                                        Expanded(child: _PlannerWeekdayLabel(label: 'Sat')),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    GridView.builder(
-                                      itemCount: _calendarDaysForMonth(_plannerMonth).length,
-                                      shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 7,
-                                        crossAxisSpacing: crossAxisSpacing,
-                                        mainAxisSpacing: crossAxisSpacing,
-                                        mainAxisExtent: cellHeight,
+                              return Column(
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Sun',
+                                        ),
                                       ),
-                                      itemBuilder: (context, index) {
-                                        final date =
-                                            _calendarDaysForMonth(_plannerMonth)[index];
-                                        final now = DateTime.now();
-                                        final todayDate =
-                                            DateTime(now.year, now.month, now.day);
-                                        final selectedDate =
-                                            DateTime(date.year, date.month, date.day);
-                                        final plannedEvent = _plannedEventForDate(date);
-                                        final plannedOutfit = _plannedOutfitForDate(date);
-                                        return _PlannerDayCard(
-                                          date: date,
-                                          currentMonth: _plannerMonth,
-                                          eventTitle: plannedEvent?.eventTitle,
-                                          plannedOutfitName: plannedOutfit?.name,
-                                          isEditable: !selectedDate.isBefore(todayDate),
-                                          onTap: () => _showPlannerDaySheet(date),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Mon',
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Tue',
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Wed',
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Thu',
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Fri',
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: _PlannerWeekdayLabel(
+                                          label: 'Sat',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  GridView.builder(
+                                    itemCount: _calendarDaysForMonth(
+                                      _plannerMonth,
+                                    ).length,
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 7,
+                                          crossAxisSpacing: crossAxisSpacing,
+                                          mainAxisSpacing: crossAxisSpacing,
+                                          mainAxisExtent: cellHeight,
+                                        ),
+                                    itemBuilder: (context, index) {
+                                      final date = _calendarDaysForMonth(
+                                        _plannerMonth,
+                                      )[index];
+                                      final now = DateTime.now();
+                                      final todayDate = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                      );
+                                      final selectedDate = DateTime(
+                                        date.year,
+                                        date.month,
+                                        date.day,
+                                      );
+                                      final plannedEvent = _plannedEventForDate(
+                                        date,
+                                      );
+                                      final plannedOutfit =
+                                          _plannedOutfitForDate(date);
+                                      return _PlannerDayCard(
+                                        date: date,
+                                        currentMonth: _plannerMonth,
+                                        eventTitle: plannedEvent?.eventTitle,
+                                        plannedOutfitName: plannedOutfit?.name,
+                                        isEditable: !selectedDate.isBefore(
+                                          todayDate,
+                                        ),
+                                        onTap: () => _showPlannerDaySheet(date),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -1675,10 +1843,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
 }
 
 class _OutfitHeader extends StatelessWidget {
-  const _OutfitHeader({
-    required this.displayName,
-    required this.onMenuPressed,
-  });
+  const _OutfitHeader({required this.displayName, required this.onMenuPressed});
 
   final String displayName;
   final VoidCallback onMenuPressed;
@@ -1689,11 +1854,11 @@ class _OutfitHeader extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF5F2),
+        color: context.nightSurface(const Color(0xFFEFF5F2)),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x140A7A76),
+            color: context.nightSurface(Color(0x140A7A76)),
             blurRadius: 18,
             offset: Offset(0, 10),
           ),
@@ -1706,8 +1871,8 @@ class _OutfitHeader extends StatelessWidget {
             IconButton(
               onPressed: onMenuPressed,
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0A7A76),
+                backgroundColor: context.nightSurface(Colors.white),
+                foregroundColor: context.nightInk(const Color(0xFF0A7A76)),
                 minimumSize: const Size(38, 38),
               ),
               icon: const Icon(Icons.menu_rounded, size: 18),
@@ -1717,26 +1882,29 @@ class _OutfitHeader extends StatelessWidget {
               child: Text(
                 'STYLEX',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: const Color(0xFF0A7A76),
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                    ),
+                  color: context.nightInk(const Color(0xFF0A7A76)),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
             Container(
               width: 34,
               height: 34,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
-                  colors: [Color(0xFFD5E8E2), Color(0xFFA9CFC3)],
+                  colors: context.nightSurfaces([
+                    Color(0xFFD5E8E2),
+                    Color(0xFFA9CFC3),
+                  ]),
                 ),
               ),
               alignment: Alignment.center,
               child: Text(
                 initials,
-                style: const TextStyle(
-                  color: Color(0xFF2D5754),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF2D5754)),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -1761,14 +1929,13 @@ class _SoftPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F8F7),
+        color: context.nightSurface(const Color(0xFFF5F8F7)),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE4ECEA)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE4ECEA)),
+        ),
       ),
-      child: Padding(
-        padding: padding,
-        child: child,
-      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
@@ -1783,8 +1950,8 @@ class _PlannerWeekdayLabel extends StatelessWidget {
     return Center(
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF97A6A8),
+        style: TextStyle(
+          color: context.nightInk(Color(0xFF97A6A8)),
           fontSize: 9,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.45,
@@ -1845,10 +2012,7 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
     if (name.isEmpty) return;
     FocusScope.of(context).unfocus();
     Navigator.of(context).pop(
-      _SavedOutfitDraft(
-        name: name,
-        tags: widget.normalizeTags(_selectedTags),
-      ),
+      _SavedOutfitDraft(name: name, tags: widget.normalizeTags(_selectedTags)),
     );
   }
 
@@ -1874,14 +2038,13 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.nightSurface(Colors.white),
             borderRadius: BorderRadius.circular(28),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
             child: ListView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.all(18),
               children: [
                 Center(
@@ -1889,25 +2052,25 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
                     width: 42,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD8E5E1),
+                      color: context.nightSurface(const Color(0xFFD8E5E1)),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Save Outfit',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF203032),
+                    color: context.nightInk(Color(0xFF203032)),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Add a name and a few tags so you can find this look faster later.',
                   style: TextStyle(
-                    color: Color(0xFF708082),
+                    color: context.nightInk(Color(0xFF708082)),
                     height: 1.45,
                   ),
                 ),
@@ -1919,7 +2082,7 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
                   decoration: InputDecoration(
                     labelText: 'Look name',
                     filled: true,
-                    fillColor: const Color(0xFFF3F8F7),
+                    fillColor: context.nightSurface(const Color(0xFFF3F8F7)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -1938,16 +2101,20 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(14),
-                            child: Image.network(
-                              item.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFEAF2F0),
-                                  ),
-                                );
-                              },
+                            child: NightImage(
+                              child: Image.network(
+                                item.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: context.nightSurface(
+                                        Color(0xFFEAF2F0),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -1956,11 +2123,11 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Tags',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF203032),
+                    color: context.nightInk(Color(0xFF203032)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1974,17 +2141,25 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
                       selected: selected,
                       showCheckmark: false,
                       onSelected: (_) => _toggleTag(tag),
-                      backgroundColor: const Color(0xFFF2F8F7),
-                      selectedColor: const Color(0xFFDFF4EF),
+                      backgroundColor: context.nightSurface(
+                        const Color(0xFFF2F8F7),
+                      ),
+                      selectedColor: context.nightSurface(
+                        const Color(0xFFDFF4EF),
+                      ),
                       side: BorderSide(
-                        color: selected
-                            ? const Color(0xFF0A7A76)
-                            : const Color(0xFFDCE7E4),
+                        color: context.nightOutline(
+                          selected
+                              ? const Color(0xFF0A7A76)
+                              : const Color(0xFFDCE7E4),
+                        ),
                       ),
                       labelStyle: TextStyle(
-                        color: selected
-                            ? const Color(0xFF0A7A76)
-                            : const Color(0xFF6B7B7D),
+                        color: context.nightInk(
+                          selected
+                              ? const Color(0xFF0A7A76)
+                              : const Color(0xFF6B7B7D),
+                        ),
                         fontWeight: FontWeight.w700,
                         fontSize: 11,
                       ),
@@ -1997,8 +2172,10 @@ class _SaveOutfitSheetState extends State<_SaveOutfitSheet> {
                   child: FilledButton(
                     onPressed: _submit,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0A7A76),
-                      foregroundColor: Colors.white,
+                      backgroundColor: context.nightSurface(
+                        const Color(0xFF0A7A76),
+                      ),
+                      foregroundColor: context.nightInk(Colors.white),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(999),
@@ -2072,14 +2249,13 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
       0.0,
       media.size.height - keyboardInset - media.padding.top - 28,
     );
-    final maxHeight = math.min(
-      media.size.height * 0.82,
-      availableHeight,
-    );
-    final selectedOutfit =
-        _selectedOutfitId == null ? null : widget.resolveOutfit(_selectedOutfitId!);
-    final selectedItems =
-        selectedOutfit == null ? const <ClosetItemPreview>[] : widget.resolveItems(selectedOutfit);
+    final maxHeight = math.min(media.size.height * 0.82, availableHeight);
+    final selectedOutfit = _selectedOutfitId == null
+        ? null
+        : widget.resolveOutfit(_selectedOutfitId!);
+    final selectedItems = selectedOutfit == null
+        ? const <ClosetItemPreview>[]
+        : widget.resolveItems(selectedOutfit);
 
     return SafeArea(
       top: false,
@@ -2092,16 +2268,13 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.nightSurface(Colors.white),
             borderRadius: BorderRadius.circular(28),
           ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: maxHeight,
-            ),
+            constraints: BoxConstraints(maxHeight: maxHeight),
             child: ListView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.all(18),
               children: [
                 Center(
@@ -2109,7 +2282,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                     width: 42,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD8E5E1),
+                      color: context.nightSurface(const Color(0xFFD8E5E1)),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -2119,7 +2292,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   widget.formatReadableDate(widget.date),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF203032),
+                    color: context.nightInk(const Color(0xFF203032)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -2131,7 +2304,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                     labelText: 'Event title',
                     hintText: 'Dinner, meeting, party...',
                     filled: true,
-                    fillColor: const Color(0xFFF3F8F7),
+                    fillColor: context.nightSurface(const Color(0xFFF3F8F7)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -2149,7 +2322,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                     labelText: 'Event details',
                     hintText: 'Location, dress code, notes...',
                     filled: true,
-                    fillColor: const Color(0xFFF3F8F7),
+                    fillColor: context.nightSurface(const Color(0xFFF3F8F7)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
@@ -2161,7 +2334,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   'Outfit Preview',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF233234),
+                    color: context.nightInk(const Color(0xFF233234)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -2169,7 +2342,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   Text(
                     'Choose a saved look below to plan this date.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF708082),
+                      color: context.nightInk(const Color(0xFF708082)),
                     ),
                   )
                 else
@@ -2183,18 +2356,23 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: widget.isPastDate || widget.initialEvent == null
+                        onPressed:
+                            widget.isPastDate || widget.initialEvent == null
                             ? null
                             : () {
                                 FocusScope.of(context).unfocus();
                                 Navigator.of(context).pop(
-                                  const _PlannerDaySheetResult(removeEvent: true),
+                                  const _PlannerDaySheetResult(
+                                    removeEvent: true,
+                                  ),
                                 );
                               },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFD45F5D),
-                          side: const BorderSide(
-                            color: Color(0xFFF0CDCB),
+                          foregroundColor: context.nightInk(
+                            const Color(0xFFD45F5D),
+                          ),
+                          side: BorderSide(
+                            color: context.nightOutline(Color(0xFFF0CDCB)),
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -2220,8 +2398,10 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                                 );
                               },
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0A7A76),
-                          foregroundColor: Colors.white,
+                          backgroundColor: context.nightSurface(
+                            const Color(0xFF0A7A76),
+                          ),
+                          foregroundColor: context.nightInk(Colors.white),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
@@ -2237,7 +2417,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   'Choose a saved look',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF233234),
+                    color: context.nightInk(const Color(0xFF233234)),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -2245,7 +2425,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   Text(
                     'Past dates are view-only. You can plan outfits starting from today.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF708082),
+                      color: context.nightInk(const Color(0xFF708082)),
                       height: 1.45,
                     ),
                   )
@@ -2253,7 +2433,7 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                   Text(
                     'Save an outfit first to schedule it on the calendar.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF708082),
+                      color: context.nightInk(const Color(0xFF708082)),
                     ),
                   )
                 else
@@ -2261,7 +2441,9 @@ class _PlannerDaySheetState extends State<_PlannerDaySheet> {
                     final outfit = widget.savedOutfits[index];
                     return Padding(
                       padding: EdgeInsets.only(
-                        bottom: index == widget.savedOutfits.length - 1 ? 0 : 10,
+                        bottom: index == widget.savedOutfits.length - 1
+                            ? 0
+                            : 10,
                       ),
                       child: _PlannerLookTile(
                         outfit: outfit,
@@ -2305,7 +2487,9 @@ class _PlannerDayCard extends StatelessWidget {
     final isCurrentMonth = date.month == currentMonth.month;
     final today = DateTime.now();
     final isToday =
-        date.year == today.year && date.month == today.month && date.day == today.day;
+        date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
     final isPastDate = !isEditable;
     final hasPlan = plannedOutfitName != null;
     final label = (eventTitle?.trim().isNotEmpty ?? false)
@@ -2318,26 +2502,30 @@ class _PlannerDayCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Ink(
         decoration: BoxDecoration(
-          color: isToday
-              ? const Color(0xFF0A7A76)
-              : hasPlan
-                  ? const Color(0xFFDFF4EF)
-                  : isPastDate
-                      ? const Color(0xFFF4F7F6)
-                      : Colors.white,
+          color: context.nightSurface(
+            isToday
+                ? const Color(0xFF0A7A76)
+                : hasPlan
+                ? const Color(0xFFDFF4EF)
+                : isPastDate
+                ? const Color(0xFFF4F7F6)
+                : Colors.white,
+          ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isToday
-                ? const Color(0xFF0A7A76)
-                : canOpen
-                    ? const Color(0xFFE1EAE7)
-                    : const Color(0xFFF0F4F3),
+            color: context.nightSurface(
+              isToday
+                  ? const Color(0xFF0A7A76)
+                  : canOpen
+                  ? const Color(0xFFE1EAE7)
+                  : const Color(0xFFF0F4F3),
+            ),
             width: isToday ? 2.2 : 1,
           ),
           boxShadow: isToday
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color(0x330A7A76),
+                    color: context.nightSurface(Color(0x330A7A76)),
                     blurRadius: 10,
                     offset: Offset(0, 4),
                   ),
@@ -2375,21 +2563,23 @@ class _PlannerDayCard extends StatelessWidget {
                           ? EdgeInsets.zero
                           : const EdgeInsets.symmetric(horizontal: 1),
                       decoration: isToday
-                          ? const BoxDecoration(
-                              color: Colors.white,
+                          ? BoxDecoration(
+                              color: context.nightSurface(Colors.white),
                               shape: BoxShape.circle,
                             )
                           : null,
                       child: Text(
                         '${date.day}',
                         style: TextStyle(
-                          color: isToday
-                              ? const Color(0xFF0A7A76)
-                              : isPastDate
-                                  ? const Color(0xFFA9B7B8)
-                                  : isCurrentMonth
-                                      ? const Color(0xFF223234)
-                                      : const Color(0xFFA6B3B4),
+                          color: context.nightInk(
+                            isToday
+                                ? const Color(0xFF0A7A76)
+                                : isPastDate
+                                ? const Color(0xFFA9B7B8)
+                                : isCurrentMonth
+                                ? const Color(0xFF223234)
+                                : const Color(0xFFA6B3B4),
+                          ),
                           fontSize: dateFontSize,
                           fontWeight: FontWeight.w900,
                         ),
@@ -2406,7 +2596,7 @@ class _PlannerDayCard extends StatelessWidget {
                           vertical: tight ? 2 : 3,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0A7A76),
+                          color: context.nightSurface(const Color(0xFF0A7A76)),
                           borderRadius: BorderRadius.circular(tight ? 5 : 7),
                         ),
                         child: Text(
@@ -2414,7 +2604,7 @@ class _PlannerDayCard extends StatelessWidget {
                           maxLines: compact ? 1 : 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: context.nightInk(Colors.white),
                             fontSize: tight ? 6.5 : 7.0,
                             fontWeight: FontWeight.w800,
                             height: 1.1,
@@ -2433,16 +2623,20 @@ class _PlannerDayCard extends StatelessWidget {
                                   vertical: tagVertical,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.18),
+                                  color: context.nightSurface(
+                                    Colors.white.withValues(alpha: 0.18),
+                                  ),
                                   borderRadius: BorderRadius.circular(999),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
+                                    color: context.nightSurface(
+                                      Colors.white.withValues(alpha: 0.22),
+                                    ),
                                   ),
                                 ),
                                 child: Text(
                                   'TODAY',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.nightInk(Colors.white),
                                     fontSize: tight ? 6.0 : 7.0,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: tight ? 0.2 : 0.4,
@@ -2450,11 +2644,15 @@ class _PlannerDayCard extends StatelessWidget {
                                 ),
                               )
                             : Icon(
-                                canOpen ? Icons.add_rounded : Icons.remove_rounded,
+                                canOpen
+                                    ? Icons.add_rounded
+                                    : Icons.remove_rounded,
                                 size: markerIconSize,
-                                color: isPastDate
-                                    ? const Color(0xFFC4CFD0)
-                                    : const Color(0xFFA9B7B8),
+                                color: context.nightInk(
+                                  isPastDate
+                                      ? const Color(0xFFC4CFD0)
+                                      : const Color(0xFFA9B7B8),
+                                ),
                               ),
                       ),
                     ),
@@ -2499,9 +2697,11 @@ class _PlannerPreviewCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F8F7),
+        color: context.nightSurface(const Color(0xFFF4F8F7)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1EAE7)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EAE7)),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -2519,16 +2719,20 @@ class _PlannerPreviewCard extends StatelessWidget {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          item.imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Color(0xFFEAF2F0),
-                              ),
-                            );
-                          },
+                        child: NightImage(
+                          child: Image.network(
+                            item.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: context.nightSurface(
+                                    Color(0xFFEAF2F0),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -2543,8 +2747,8 @@ class _PlannerPreviewCard extends StatelessWidget {
                 children: [
                   Text(
                     outfit.name,
-                    style: const TextStyle(
-                      color: Color(0xFF223234),
+                    style: TextStyle(
+                      color: context.nightInk(Color(0xFF223234)),
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
                     ),
@@ -2552,8 +2756,8 @@ class _PlannerPreviewCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${items.length} pieces',
-                    style: const TextStyle(
-                      color: Color(0xFF8A999C),
+                    style: TextStyle(
+                      color: context.nightInk(Color(0xFF8A999C)),
                       fontWeight: FontWeight.w700,
                       fontSize: 10,
                     ),
@@ -2564,8 +2768,8 @@ class _PlannerPreviewCard extends StatelessWidget {
                       notes.trim(),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF6E8082),
+                      style: TextStyle(
+                        color: context.nightInk(Color(0xFF6E8082)),
                         fontSize: 10,
                         height: 1.35,
                       ),
@@ -2600,44 +2804,52 @@ class _PlannerLookTile extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFDFF4EF) : const Color(0xFFF4F8F7),
+          color: context.nightSurface(
+            selected ? const Color(0xFFDFF4EF) : const Color(0xFFF4F8F7),
+          ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? const Color(0xFF0A7A76) : const Color(0xFFE2EBE8),
+            color: context.nightSurface(
+              selected ? const Color(0xFF0A7A76) : const Color(0xFFE2EBE8),
+            ),
           ),
         ),
         child: Row(
           children: [
             Icon(
-              selected ? Icons.check_circle_rounded : Icons.calendar_today_rounded,
-              color: selected ? const Color(0xFF0A7A76) : const Color(0xFF8FA1A3),
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.calendar_today_rounded,
+              color: context.nightInk(
+                selected ? const Color(0xFF0A7A76) : const Color(0xFF8FA1A3),
+              ),
               size: 18,
             ),
             const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  outfit.tags.isEmpty
-                      ? outfit.name
-                      : '${outfit.name} • ${outfit.tags.first}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF233234),
-                    fontWeight: FontWeight.w800,
-                  ),
+            Expanded(
+              child: Text(
+                outfit.tags.isEmpty
+                    ? outfit.name
+                    : '${outfit.name} • ${outfit.tags.first}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF233234)),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
+            ),
             if (outfit.isFavorite)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 8),
                 child: Icon(
                   Icons.favorite_rounded,
-                  color: Color(0xFFD05D79),
+                  color: context.nightInk(Color(0xFFD05D79)),
                   size: 16,
                 ),
               ),
-            ],
-          ),
+          ],
+        ),
       ),
     );
   }
@@ -2661,10 +2873,12 @@ class _ClosetSelectionCard extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.nightSurface(Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? const Color(0xFF0A7A76) : const Color(0xFFE1EAE7),
+            color: context.nightSurface(
+              selected ? const Color(0xFF0A7A76) : const Color(0xFFE1EAE7),
+            ),
             width: selected ? 1.8 : 1,
           ),
         ),
@@ -2679,26 +2893,31 @@ class _ClosetSelectionCard extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        item.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFFEAF2F0), Color(0xFFD6E4E0)],
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
+                      NightImage(
+                        child: Image.network(
+                          item.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: context.nightSurfaces([
+                                    Color(0xFFEAF2F0),
+                                    Color(0xFFD6E4E0),
+                                  ]),
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
                               ),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.checkroom_outlined,
-                                color: Color(0xFF7C8D90),
+                              child: Center(
+                                child: Icon(
+                                  Icons.checkroom_outlined,
+                                  color: context.nightInk(Color(0xFF7C8D90)),
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                       if (selected)
                         Positioned(
@@ -2707,13 +2926,13 @@ class _ClosetSelectionCard extends StatelessWidget {
                           child: Container(
                             width: 22,
                             height: 22,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0A7A76),
+                            decoration: BoxDecoration(
+                              color: context.nightSurface(Color(0xFF0A7A76)),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.check_rounded,
-                              color: Colors.white,
+                              color: context.nightInk(Colors.white),
                               size: 14,
                             ),
                           ),
@@ -2727,8 +2946,8 @@ class _ClosetSelectionCard extends StatelessWidget {
                 item.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF233234),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF233234)),
                   fontWeight: FontWeight.w800,
                   fontSize: 11,
                 ),
@@ -2738,8 +2957,8 @@ class _ClosetSelectionCard extends StatelessWidget {
                 item.subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF8C9B9E),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF8C9B9E)),
                   fontWeight: FontWeight.w700,
                   fontSize: 9,
                 ),
@@ -2757,14 +2976,14 @@ class _EmptyClosetPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.symmetric(vertical: 28),
       child: Center(
         child: Column(
           children: [
             Icon(
               Icons.inventory_2_outlined,
-              color: Color(0xFF8EA0A2),
+              color: context.nightInk(Color(0xFF8EA0A2)),
               size: 30,
             ),
             SizedBox(height: 10),
@@ -2772,7 +2991,7 @@ class _EmptyClosetPrompt extends StatelessWidget {
               'No closet pieces yet. Add a few items to start building outfits.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF7B8C8F),
+                color: context.nightInk(Color(0xFF7B8C8F)),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 height: 1.4,
@@ -2786,10 +3005,7 @@ class _EmptyClosetPrompt extends StatelessWidget {
 }
 
 class _CurrentLookChip extends StatelessWidget {
-  const _CurrentLookChip({
-    required this.item,
-    required this.onRemove,
-  });
+  const _CurrentLookChip({required this.item, required this.onRemove});
 
   final ClosetItemPreview item;
   final VoidCallback onRemove;
@@ -2800,25 +3016,31 @@ class _CurrentLookChip extends StatelessWidget {
       width: 146,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.nightSurface(Colors.white),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE0E9E6)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE0E9E6)),
+        ),
       ),
       child: Row(
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              item.imageUrl,
-              width: 42,
-              height: 42,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const DecoratedBox(
-                  decoration: BoxDecoration(color: Color(0xFFEAF2F0)),
-                  child: SizedBox(width: 42, height: 42),
-                );
-              },
+            child: NightImage(
+              child: Image.network(
+                item.imageUrl,
+                width: 42,
+                height: 42,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: context.nightSurface(Color(0xFFEAF2F0)),
+                    ),
+                    child: SizedBox(width: 42, height: 42),
+                  );
+                },
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -2830,19 +3052,19 @@ class _CurrentLookChip extends StatelessWidget {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF233234),
+                    color: context.nightInk(Color(0xFF233234)),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   item.subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF8EA0A2),
+                    color: context.nightInk(Color(0xFF8EA0A2)),
                   ),
                 ),
               ],
@@ -2851,12 +3073,12 @@ class _CurrentLookChip extends StatelessWidget {
           InkWell(
             onTap: onRemove,
             borderRadius: BorderRadius.circular(999),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(4),
               child: Icon(
                 Icons.close_rounded,
                 size: 16,
-                color: Color(0xFF93A0A3),
+                color: context.nightInk(Color(0xFF93A0A3)),
               ),
             ),
           ),
@@ -2867,20 +3089,14 @@ class _CurrentLookChip extends StatelessWidget {
 }
 
 class _RecentLookBundle {
-  const _RecentLookBundle({
-    required this.entry,
-    required this.items,
-  });
+  const _RecentLookBundle({required this.entry, required this.items});
 
   final RecentOutfitHistoryEntry entry;
   final List<ClosetItemPreview> items;
 }
 
 class _RecentLookCard extends StatelessWidget {
-  const _RecentLookCard({
-    required this.bundle,
-    required this.onTap,
-  });
+  const _RecentLookCard({required this.bundle, required this.onTap});
 
   final _RecentLookBundle bundle;
   final VoidCallback onTap;
@@ -2920,9 +3136,11 @@ class _RecentLookCard extends StatelessWidget {
         width: 176,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF6FAF9),
+          color: context.nightSurface(const Color(0xFFF6FAF9)),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE1ECE9)),
+          border: Border.all(
+            color: context.nightSurface(const Color(0xFFE1ECE9)),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2956,7 +3174,7 @@ class _RecentLookCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleSmall?.copyWith(
-                color: const Color(0xFF203032),
+                color: context.nightInk(const Color(0xFF203032)),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -2966,7 +3184,7 @@ class _RecentLookCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF6F8082),
+                color: context.nightInk(const Color(0xFF6F8082)),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.2,
               ),
@@ -2979,10 +3197,7 @@ class _RecentLookCard extends StatelessWidget {
 }
 
 class _RecentLookPreviewImage extends StatelessWidget {
-  const _RecentLookPreviewImage({
-    required this.item,
-    this.compact = false,
-  });
+  const _RecentLookPreviewImage({required this.item, this.compact = false});
 
   final ClosetItemPreview? item;
   final bool compact;
@@ -2994,11 +3209,11 @@ class _RecentLookPreviewImage extends StatelessWidget {
       height: compact ? 62 : 76,
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.nightSurface(Colors.white),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x14000000),
+            color: context.nightSurface(Color(0x14000000)),
             blurRadius: 14,
             offset: Offset(0, 6),
           ),
@@ -3007,29 +3222,37 @@ class _RecentLookPreviewImage extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: item == null
-            ? const DecoratedBox(
+            ? DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFF3F6F5), Color(0xFFE0E9E7)],
+                    colors: context.nightSurfaces([
+                      Color(0xFFF3F6F5),
+                      Color(0xFFE0E9E7),
+                    ]),
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
                 ),
               )
-            : Image.network(
-                item!.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFF3F6F5), Color(0xFFE0E9E7)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+            : NightImage(
+                child: Image.network(
+                  item!.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: context.nightSurfaces([
+                            Color(0xFFF3F6F5),
+                            Color(0xFFE0E9E7),
+                          ]),
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
       ),
     );
@@ -3058,12 +3281,16 @@ class _SavedLookCard extends StatelessWidget {
         width: 168,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: outfit.isFavorite ? const Color(0xFFFFFBF7) : Colors.white,
+          color: context.nightSurface(
+            outfit.isFavorite ? const Color(0xFFFFFBF7) : Colors.white,
+          ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: outfit.isFavorite
-                ? const Color(0xFFF1D9B4)
-                : const Color(0xFFE1EAE7),
+            color: context.nightSurface(
+              outfit.isFavorite
+                  ? const Color(0xFFF1D9B4)
+                  : const Color(0xFFE1EAE7),
+            ),
           ),
         ),
         child: Column(
@@ -3081,16 +3308,20 @@ class _SavedLookCard extends StatelessWidget {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              item.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFEAF2F0),
-                                  ),
-                                );
-                              },
+                            child: NightImage(
+                              child: Image.network(
+                                item.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: context.nightSurface(
+                                        Color(0xFFEAF2F0),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -3104,20 +3335,20 @@ class _SavedLookCard extends StatelessWidget {
                       child: Container(
                         width: 24,
                         height: 24,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: context.nightSurface(Colors.white),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Color(0x22000000),
+                              color: context.nightSurface(Color(0x22000000)),
                               blurRadius: 8,
                               offset: Offset(0, 3),
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.favorite_rounded,
-                          color: Color(0xFFD05D79),
+                          color: context.nightInk(Color(0xFFD05D79)),
                           size: 14,
                         ),
                       ),
@@ -3130,8 +3361,8 @@ class _SavedLookCard extends StatelessWidget {
               outfit.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF223234),
+              style: TextStyle(
+                color: context.nightInk(Color(0xFF223234)),
                 fontWeight: FontWeight.w800,
                 fontSize: 12,
               ),
@@ -3142,8 +3373,8 @@ class _SavedLookCard extends StatelessWidget {
                 outfit.tags.take(2).join(' • '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF0A7A76),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF0A7A76)),
                   fontWeight: FontWeight.w700,
                   fontSize: 10,
                 ),
@@ -3153,8 +3384,8 @@ class _SavedLookCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               '${items.length} pieces',
-              style: const TextStyle(
-                color: Color(0xFF8A999C),
+              style: TextStyle(
+                color: context.nightInk(Color(0xFF8A999C)),
                 fontWeight: FontWeight.w700,
                 fontSize: 10,
               ),
@@ -3175,7 +3406,7 @@ class _SavedLookDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F8F7),
+        color: context.nightSurface(const Color(0xFFF5F8F7)),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
@@ -3186,15 +3417,19 @@ class _SavedLookDetailCard extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  item.imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const DecoratedBox(
-                      decoration: BoxDecoration(color: Color(0xFFEAF2F0)),
-                    );
-                  },
+                child: NightImage(
+                  child: Image.network(
+                    item.imageUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) {
+                      return DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: context.nightSurface(Color(0xFFEAF2F0)),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -3203,8 +3438,8 @@ class _SavedLookDetailCard extends StatelessWidget {
               item.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF223234),
+              style: TextStyle(
+                color: context.nightInk(Color(0xFF223234)),
                 fontWeight: FontWeight.w800,
                 fontSize: 11,
               ),
@@ -3214,8 +3449,8 @@ class _SavedLookDetailCard extends StatelessWidget {
               '${item.category.toUpperCase()} • ${item.subtitle}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF8A999C),
+              style: TextStyle(
+                color: context.nightInk(Color(0xFF8A999C)),
                 fontWeight: FontWeight.w700,
                 fontSize: 9,
               ),
@@ -3285,10 +3520,7 @@ class _SavedOutfit {
 }
 
 class _SavedOutfitDraft {
-  const _SavedOutfitDraft({
-    required this.name,
-    required this.tags,
-  });
+  const _SavedOutfitDraft({required this.name, required this.tags});
 
   final String name;
   final List<String> tags;

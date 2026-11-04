@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/app_appearance.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -103,7 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeHome() async {
-    final hasCache = _cachedClosetItems != null && _cachedOutfitSuggestion != null;
+    final hasCache =
+        _cachedClosetItems != null && _cachedOutfitSuggestion != null;
     await Future.wait([
       _viewModel.load(forceRefresh: false),
       if (!hasCache) _loadClosetCount(),
@@ -188,23 +191,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<_ClosetInsightsData> _buildClosetInsights(
     List<ClosetItemPreview> items,
   ) async {
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final currentUserId =
+        Supabase.instance.client.auth.currentUser?.id ?? 'guest';
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ?? const [];
+    final raw =
+        prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ??
+        const [];
 
     final savedItemIds = <String>{};
     for (final entry in raw) {
       try {
         final json = jsonDecode(entry) as Map<String, dynamic>;
-        final ids = (json['item_ids'] as List<dynamic>? ?? const [])
-            .map((item) => item.toString());
+        final ids = (json['item_ids'] as List<dynamic>? ?? const []).map(
+          (item) => item.toString(),
+        );
         savedItemIds.addAll(ids);
       } catch (_) {
         continue;
       }
     }
 
-    final unusedItems = items.where((item) => !savedItemIds.contains(item.id)).toList();
+    final unusedItems = items
+        .where((item) => !savedItemIds.contains(item.id))
+        .toList();
     final now = DateTime.now();
     final recentThreshold = now.subtract(const Duration(days: 7));
     final recentItemsCount = items.where((item) {
@@ -272,9 +281,12 @@ class _HomeScreenState extends State<HomeScreen> {
       return const _TodayPlannedOutfitData(items: []);
     }
 
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final currentUserId =
+        Supabase.instance.client.auth.currentUser?.id ?? 'guest';
     final prefs = await SharedPreferences.getInstance();
-    final rawPlanned = prefs.getString('$_plannedOutfitsKeyPrefix:$currentUserId');
+    final rawPlanned = prefs.getString(
+      '$_plannedOutfitsKeyPrefix:$currentUserId',
+    );
     if (rawPlanned == null || rawPlanned.isEmpty) {
       return const _TodayPlannedOutfitData(items: []);
     }
@@ -289,14 +301,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final outfitId = plannedEntry is String
           ? plannedEntry
           : ((plannedEntry as Map<String, dynamic>)['outfit_id'] ??
-                  plannedEntry['outfitId'])
-              ?.toString();
+                    plannedEntry['outfitId'])
+                ?.toString();
       if (outfitId == null || outfitId.isEmpty) {
         return const _TodayPlannedOutfitData(items: []);
       }
 
       final rawSavedOutfits =
-          prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ?? const [];
+          prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ??
+          const [];
       for (final entry in rawSavedOutfits) {
         try {
           final json = jsonDecode(entry) as Map<String, dynamic>;
@@ -307,8 +320,9 @@ class _HomeScreenState extends State<HomeScreen> {
           final itemIds = (json['item_ids'] as List<dynamic>? ?? const [])
               .map((item) => item.toString())
               .toSet();
-          final plannedItems =
-              items.where((item) => itemIds.contains(item.id)).toList();
+          final plannedItems = items
+              .where((item) => itemIds.contains(item.id))
+              .toList();
           if (plannedItems.isEmpty) {
             return const _TodayPlannedOutfitData(items: []);
           }
@@ -364,7 +378,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.w800,
                             height: 0.95,
                             letterSpacing: -1.5,
-                            color: theme.colorScheme.onSurface,
+                            color: context.nightInk(
+                              theme.colorScheme.onSurface,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -373,14 +389,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icon(
                               weather.icon,
                               size: 18,
-                              color: const Color(0xFF0A7A76),
+                              color: context.nightInk(const Color(0xFF0A7A76)),
                             ),
                             if (weather.temperatureLabel != null) ...[
                               const SizedBox(width: 6),
                               Text(
                                 weather.temperatureLabel!,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: const Color(0xFF0A7A76),
+                                  color: context.nightInk(
+                                    const Color(0xFF0A7A76),
+                                  ),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -390,7 +408,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 weather.message,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                                  color: context.nightInk(
+                                    theme.colorScheme.onSurfaceVariant,
+                                  ),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -414,27 +434,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _HomeOutfitShowcaseCard(
                                   eyebrow: _plannedOutfitBadge(),
                                   title:
-                                      (_plannedOutfitNameForToday?.trim().isNotEmpty ??
-                                              false)
-                                          ? _plannedOutfitNameForToday!
-                                          : 'Planned for today',
+                                      (_plannedOutfitNameForToday
+                                              ?.trim()
+                                              .isNotEmpty ??
+                                          false)
+                                      ? _plannedOutfitNameForToday!
+                                      : 'Planned for today',
                                   actionLabel: 'Use This Look',
                                   onAction: () {
                                     _storeRecentLook(
                                       title:
                                           (_plannedOutfitNameForToday
-                                                      ?.trim()
-                                                      .isNotEmpty ??
-                                                  false)
-                                              ? _plannedOutfitNameForToday!
-                                              : 'Planned for today',
+                                                  ?.trim()
+                                                  .isNotEmpty ??
+                                              false)
+                                          ? _plannedOutfitNameForToday!
+                                          : 'Planned for today',
                                       items: _plannedOutfitForToday,
                                       source: 'planned',
                                     );
                                   },
                                   child: _OutfitGrid(
                                     items: _plannedOutfitForToday,
-                                    showOuterwear: weather.shouldSuggestOuterwear,
+                                    showOuterwear:
+                                        weather.shouldSuggestOuterwear,
                                   ),
                                 ),
                                 const SizedBox(height: 14),
@@ -485,16 +508,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: double.infinity,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
+                              gradient: LinearGradient(
+                                colors: context.nightSurfaces([
                                   Color(0xFF0A8C87),
                                   Color(0xFF6CF4ED),
-                                ],
+                                ]),
                               ),
                               borderRadius: BorderRadius.circular(999),
-                              boxShadow: const [
+                              boxShadow: [
                                 BoxShadow(
-                                  color: Color(0x330A8C87),
+                                  color: context.nightSurface(
+                                    Color(0x330A8C87),
+                                  ),
                                   blurRadius: 18,
                                   offset: Offset(0, 8),
                                 ),
@@ -517,25 +542,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                 }
                               },
                               style: FilledButton.styleFrom(
-                                backgroundColor: Colors.transparent,
+                                backgroundColor: context.nightSurface(
+                                  Colors.transparent,
+                                ),
                                 shadowColor: Colors.transparent,
-                                foregroundColor: Colors.white,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 18),
+                                foregroundColor: context.nightInk(Colors.white),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                size: 18,
-                              ),
+                              icon: Icon(Icons.refresh_rounded, size: 18),
                               label: Text(
                                 hasClosetItems
                                     ? 'Get Another Suggestion'
                                     : _isLoadingCloset
-                                        ? 'Loading Your Closet'
-                                        : 'Go To Closet',
+                                    ? 'Loading Your Closet'
+                                    : 'Go To Closet',
                               ),
                             ),
                           ),
@@ -555,8 +580,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   body: _unusedItemsCount == 0
                                       ? 'Every closet piece has already been used in a saved look.'
                                       : _unusedItemTitle != null
-                                          ? '$_unusedItemsCount pieces have not been used yet. Try styling $_unusedItemTitle next.'
-                                          : '$_unusedItemsCount pieces have not been used in a saved outfit yet.',
+                                      ? '$_unusedItemsCount pieces have not been used yet. Try styling $_unusedItemTitle next.'
+                                      : '$_unusedItemsCount pieces have not been used in a saved outfit yet.',
                                   onTap: () {
                                     _openClosetFilter(
                                       'Unused',
@@ -573,8 +598,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   body: _recentItemsCount == 0
                                       ? 'No new items added in the last 7 days.'
                                       : _recentItemsCount == 1
-                                          ? 'You added 1 item in the last 7 days.'
-                                          : 'You added $_recentItemsCount items in the last 7 days.',
+                                      ? 'You added 1 item in the last 7 days.'
+                                      : 'You added $_recentItemsCount items in the last 7 days.',
                                   onTap: () {
                                     _openClosetFilter('Recently Added');
                                   },
@@ -621,7 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
 
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${tab.name} is coming soon.')),
+                          SnackBar(
+                            content: Text('${tab.name} is coming soon.'),
+                          ),
                         );
                       },
                     ),
@@ -682,8 +709,8 @@ class _Header extends StatelessWidget {
             SettingsScreen.openFromMenu(context);
           },
           style: IconButton.styleFrom(
-            backgroundColor: const Color(0xFFE8F5F2),
-            foregroundColor: const Color(0xFF0A7A76),
+            backgroundColor: context.nightSurface(const Color(0xFFE8F5F2)),
+            foregroundColor: context.nightInk(const Color(0xFF0A7A76)),
           ),
           icon: const Icon(Icons.menu_rounded),
         ),
@@ -692,7 +719,7 @@ class _Header extends StatelessWidget {
           'Stylex',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFF0A6E6A),
+            color: context.nightInk(const Color(0xFF0A6E6A)),
           ),
         ),
       ],
@@ -719,7 +746,7 @@ class _SectionLabel extends StatelessWidget {
           title,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
+            color: context.nightInk(theme.colorScheme.onSurface),
           ),
         ),
         if (badge != null) ...[
@@ -728,7 +755,7 @@ class _SectionLabel extends StatelessWidget {
             child: Text(
               badge!,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF0A8C87),
+                color: context.nightInk(const Color(0xFF0A8C87)),
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.35,
               ),
@@ -765,10 +792,14 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: dark ? scheme.surfaceContainer : const Color(0xFFF5FAF9),
+        color: context.nightSurface(
+          dark ? scheme.surfaceContainer : const Color(0xFFF5FAF9),
+        ),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: dark ? scheme.outlineVariant : const Color(0xFFE0ECE9),
+          color: context.nightSurface(
+            dark ? scheme.outlineVariant : const Color(0xFFE0ECE9),
+          ),
         ),
       ),
       child: Padding(
@@ -779,7 +810,7 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
             Text(
               eyebrow,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: accent,
+                color: context.nightInk(accent),
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.45,
               ),
@@ -789,7 +820,9 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
               Text(
                 title!,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: dark ? scheme.onSurface : const Color(0xFF1F2B2D),
+                  color: context.nightInk(
+                    dark ? scheme.onSurface : const Color(0xFF1F2B2D),
+                  ),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -803,9 +836,11 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onAction,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: accent,
+                    foregroundColor: context.nightInk(accent),
                     side: BorderSide(
-                      color: dark ? scheme.outline : const Color(0xFFBFE2DD),
+                      color: context.nightOutline(
+                        dark ? scheme.outline : const Color(0xFFBFE2DD),
+                      ),
                     ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -828,10 +863,7 @@ class _HomeOutfitShowcaseCard extends StatelessWidget {
 }
 
 class _OutfitGrid extends StatelessWidget {
-  const _OutfitGrid({
-    required this.items,
-    required this.showOuterwear,
-  });
+  const _OutfitGrid({required this.items, required this.showOuterwear});
 
   final List<ClosetItemPreview> items;
   final bool showOuterwear;
@@ -858,7 +890,8 @@ class _OutfitGrid extends StatelessWidget {
                     ? _OutfitCard(item: top, tall: true)
                     : const _OutfitPlaceholderCard(
                         title: 'Add a top',
-                        subtitle: 'A complete outfit starts with one core piece.',
+                        subtitle:
+                            'A complete outfit starts with one core piece.',
                       ),
               ),
               const SizedBox(width: 10),
@@ -916,17 +949,19 @@ class _OutfitSuggestionUnavailableCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
+        color: context.nightSurface(const Color(0xFFFFFFFF)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           children: [
-            const Icon(
+            Icon(
               Icons.auto_awesome_outlined,
-              color: Color(0xFF0A7A76),
+              color: context.nightInk(Color(0xFF0A7A76)),
               size: 24,
             ),
             const SizedBox(height: 10),
@@ -934,7 +969,7 @@ class _OutfitSuggestionUnavailableCard extends StatelessWidget {
               'We need a few more pieces to build a fresh suggestion.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF1F2B2D),
+                color: context.nightInk(const Color(0xFF1F2B2D)),
                 fontWeight: FontWeight.w700,
                 height: 1.4,
               ),
@@ -944,7 +979,7 @@ class _OutfitSuggestionUnavailableCard extends StatelessWidget {
               'Add a mix of tops, bottoms, and shoes to unlock more generated looks.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF6A7C7E),
+                color: context.nightInk(const Color(0xFF6A7C7E)),
                 height: 1.45,
               ),
             ),
@@ -966,17 +1001,19 @@ class _EmptyHomeSuggestionCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Icon(
+            Icon(
               Icons.auto_awesome_outlined,
-              color: Color(0xFF0A7A76),
+              color: context.nightInk(Color(0xFF0A7A76)),
               size: 28,
             ),
             const SizedBox(height: 12),
@@ -985,7 +1022,7 @@ class _EmptyHomeSuggestionCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1F2B2D),
+                color: context.nightInk(const Color(0xFF1F2B2D)),
               ),
             ),
             const SizedBox(height: 8),
@@ -993,7 +1030,7 @@ class _EmptyHomeSuggestionCard extends StatelessWidget {
               'Outfit suggestions will show up once your closet has at least one piece to work with.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF6A7C7E),
+                color: context.nightInk(const Color(0xFF6A7C7E)),
                 height: 1.45,
               ),
             ),
@@ -1001,10 +1038,14 @@ class _EmptyHomeSuggestionCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onAddPressed,
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0A7A76),
-                side: const BorderSide(color: Color(0xFFBFE6DE)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                foregroundColor: context.nightInk(const Color(0xFF0A7A76)),
+                side: BorderSide(
+                  color: context.nightOutline(Color(0xFFBFE6DE)),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
                 ),
@@ -1026,11 +1067,13 @@ class _HomeLoadingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 20, vertical: 28),
         child: Column(
           children: [
@@ -1039,7 +1082,7 @@ class _HomeLoadingCard extends StatelessWidget {
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 2.6,
-                color: Color(0xFF0A7A76),
+                color: context.nightInk(Color(0xFF0A7A76)),
               ),
             ),
             SizedBox(height: 14),
@@ -1047,7 +1090,7 @@ class _HomeLoadingCard extends StatelessWidget {
               'Loading your closet pieces...',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF1F2B2D),
+                color: context.nightInk(Color(0xFF1F2B2D)),
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
               ),
@@ -1057,7 +1100,7 @@ class _HomeLoadingCard extends StatelessWidget {
               'We are preparing your outfit suggestions.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF6A7C7E),
+                color: context.nightInk(Color(0xFF6A7C7E)),
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -1070,10 +1113,7 @@ class _HomeLoadingCard extends StatelessWidget {
 }
 
 class _OutfitCard extends StatelessWidget {
-  const _OutfitCard({
-    required this.item,
-    this.tall = false,
-  });
+  const _OutfitCard({required this.item, this.tall = false});
 
   final ClosetItemPreview item;
   final bool tall;
@@ -1085,36 +1125,41 @@ class _OutfitCard extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            item.imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFEAF3F1), Color(0xFFD7E7E3)],
+          NightImage(
+            child: Image.network(
+              item.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: context.nightSurfaces([
+                        Color(0xFFEAF3F1),
+                        Color(0xFFD7E7E3),
+                      ]),
+                    ),
                   ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.broken_image_outlined,
-                    color: Color(0xFF6D7E80),
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: context.nightInk(Color(0xFF6D7E80)),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
+                colors: context.nightSurfaces([
                   Colors.transparent,
                   Colors.black.withValues(alpha: tall ? 0.14 : 0.24),
-                ],
+                ]),
               ),
             ),
           ),
@@ -1130,13 +1175,13 @@ class _OutfitCard extends StatelessWidget {
                   item.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.nightInk(Colors.white),
                     fontWeight: FontWeight.w700,
                     fontSize: 11,
                     shadows: [
                       Shadow(
-                        color: Color(0x66000000),
+                        color: context.nightInk(Color(0x66000000)),
                         blurRadius: 8,
                       ),
                     ],
@@ -1147,8 +1192,8 @@ class _OutfitCard extends StatelessWidget {
                   item.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFE8F6F4),
+                  style: TextStyle(
+                    color: context.nightInk(Color(0xFFE8F6F4)),
                     fontWeight: FontWeight.w700,
                     fontSize: 9,
                     letterSpacing: 0.7,
@@ -1178,25 +1223,27 @@ class _OutfitPlaceholderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
       child: Padding(
         padding: EdgeInsets.all(compact ? 12 : 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
+            Icon(
               Icons.auto_awesome_rounded,
-              color: Color(0xFF0A7A76),
+              color: context.nightInk(Color(0xFF0A7A76)),
               size: 18,
             ),
             const Spacer(),
             Text(
               title,
-              style: const TextStyle(
-                color: Color(0xFF203032),
+              style: TextStyle(
+                color: context.nightInk(Color(0xFF203032)),
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
               ),
@@ -1204,8 +1251,8 @@ class _OutfitPlaceholderCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(
-                color: Color(0xFF6A7C7E),
+              style: TextStyle(
+                color: context.nightInk(Color(0xFF6A7C7E)),
                 fontSize: 10,
                 height: 1.35,
               ),
@@ -1229,30 +1276,35 @@ class _LayerSuggestionCard extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            item.imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [Color(0xFFEAF3F1), Color(0xFFD7E7E3)],
+          NightImage(
+            child: Image.network(
+              item.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: context.nightSurfaces([
+                        Color(0xFFEAF3F1),
+                        Color(0xFFD7E7E3),
+                      ]),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
-                colors: [
+                colors: context.nightSurfaces([
                   Colors.black.withValues(alpha: 0.45),
                   Colors.transparent,
-                ],
+                ]),
               ),
             ),
           ),
@@ -1264,10 +1316,10 @@ class _LayerSuggestionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
+                Text(
                   'LAYER OPTION',
                   style: TextStyle(
-                    color: Color(0xFFCFF6EE),
+                    color: context.nightInk(Color(0xFFCFF6EE)),
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.1,
@@ -1276,8 +1328,8 @@ class _LayerSuggestionCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   item.title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.nightInk(Colors.white),
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1285,8 +1337,8 @@ class _LayerSuggestionCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   item.subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFFE7F2F0),
+                  style: TextStyle(
+                    color: context.nightInk(Color(0xFFE7F2F0)),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.7,
@@ -1323,9 +1375,11 @@ class _InsightCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: Ink(
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F6F5),
+          color: context.nightSurface(const Color(0xFFF0F6F5)),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE5EFEA)),
+          border: Border.all(
+            color: context.nightSurface(const Color(0xFFE5EFEA)),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -1334,11 +1388,15 @@ class _InsightCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(icon, color: const Color(0xFF0A7A76), size: 18),
+                  Icon(
+                    icon,
+                    color: context.nightInk(const Color(0xFF0A7A76)),
+                    size: 18,
+                  ),
                   const Spacer(),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: Color(0xFFA8B6B6),
+                    color: context.nightInk(Color(0xFFA8B6B6)),
                     size: 18,
                   ),
                 ],
@@ -1354,7 +1412,7 @@ class _InsightCard extends StatelessWidget {
               Text(
                 body,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF708082),
+                  color: context.nightInk(const Color(0xFF708082)),
                   height: 1.45,
                 ),
               ),
@@ -1375,9 +1433,11 @@ class _EmptyInsightCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1386,13 +1446,13 @@ class _EmptyInsightCard extends StatelessWidget {
             Container(
               width: 42,
               height: 42,
-              decoration: const BoxDecoration(
-                color: Color(0xFFDFF4EF),
+              decoration: BoxDecoration(
+                color: context.nightSurface(Color(0xFFDFF4EF)),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.insights_outlined,
-                color: Color(0xFF0A7A76),
+                color: context.nightInk(Color(0xFF0A7A76)),
                 size: 22,
               ),
             ),
@@ -1405,14 +1465,14 @@ class _EmptyInsightCard extends StatelessWidget {
                     'No closet insights yet',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1F2B2D),
+                      color: context.nightInk(const Color(0xFF1F2B2D)),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Add your first piece and we will start surfacing insights here.',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF708082),
+                      color: context.nightInk(const Color(0xFF708082)),
                       height: 1.45,
                     ),
                   ),
@@ -1433,11 +1493,13 @@ class _HomeLoadingInsightsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(18),
         child: Row(
           children: [
@@ -1446,7 +1508,7 @@ class _HomeLoadingInsightsCard extends StatelessWidget {
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2.4,
-                color: Color(0xFF0A7A76),
+                color: context.nightInk(Color(0xFF0A7A76)),
               ),
             ),
             SizedBox(width: 14),
@@ -1454,7 +1516,7 @@ class _HomeLoadingInsightsCard extends StatelessWidget {
               child: Text(
                 'Loading closet insights...',
                 style: TextStyle(
-                  color: Color(0xFF708082),
+                  color: context.nightInk(Color(0xFF708082)),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1476,9 +1538,11 @@ class _InsightItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F8F7),
+        color: context.nightSurface(const Color(0xFFF4F8F7)),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3ECE9)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE3ECE9)),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -1486,26 +1550,28 @@ class _InsightItemTile extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                item.imageUrl,
-                width: 56,
-                height: 56,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Color(0xFFEAF2F0),
-                    ),
-                    child: SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: Icon(
-                        Icons.checkroom_outlined,
-                        color: Color(0xFF7B8D90),
+              child: NightImage(
+                child: Image.network(
+                  item.imageUrl,
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: context.nightSurface(Color(0xFFEAF2F0)),
                       ),
-                    ),
-                  );
-                },
+                      child: SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: Icon(
+                          Icons.checkroom_outlined,
+                          color: context.nightInk(Color(0xFF7B8D90)),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1517,8 +1583,8 @@ class _InsightItemTile extends StatelessWidget {
                     item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF233234),
+                    style: TextStyle(
+                      color: context.nightInk(Color(0xFF233234)),
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
                     ),
@@ -1528,8 +1594,8 @@ class _InsightItemTile extends StatelessWidget {
                     '${item.category.toUpperCase()} • ${item.subtitle}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF8A999C),
+                    style: TextStyle(
+                      color: context.nightInk(Color(0xFF8A999C)),
                       fontWeight: FontWeight.w700,
                       fontSize: 10,
                     ),
@@ -1617,7 +1683,7 @@ class _TrendingCardState extends State<_TrendingCard> {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: item.backgroundColors,
+                      colors: context.nightSurfaces(item.backgroundColors),
                     ),
                   ),
                   child: Stack(
@@ -1629,7 +1695,9 @@ class _TrendingCardState extends State<_TrendingCard> {
                         bottom: 42,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: item.orbColors),
+                            gradient: LinearGradient(
+                              colors: context.nightSurfaces(item.orbColors),
+                            ),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -1640,7 +1708,9 @@ class _TrendingCardState extends State<_TrendingCard> {
                         bottom: 12,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: context.nightSurface(
+                              Colors.white.withValues(alpha: 0.7),
+                            ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Padding(
@@ -1652,14 +1722,18 @@ class _TrendingCardState extends State<_TrendingCard> {
                                   item.title,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF1F2A2C),
+                                    color: context.nightInk(
+                                      const Color(0xFF1F2A2C),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   item.label,
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: const Color(0xFF6E8F95),
+                                    color: context.nightInk(
+                                      const Color(0xFF6E8F95),
+                                    ),
                                     letterSpacing: 1.1,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -1678,7 +1752,7 @@ class _TrendingCardState extends State<_TrendingCard> {
                 flex: 1,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7F6),
+                    color: context.nightSurface(const Color(0xFFF5F7F6)),
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: RotatedBox(
@@ -1687,7 +1761,7 @@ class _TrendingCardState extends State<_TrendingCard> {
                       child: Text(
                         item.sideLabel,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: const Color(0xFF98A8AA),
+                          color: context.nightInk(const Color(0xFF98A8AA)),
                           letterSpacing: 1.8,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1717,10 +1791,7 @@ class _ClosetInsightsData {
 }
 
 class _TodayPlannedOutfitData {
-  const _TodayPlannedOutfitData({
-    required this.items,
-    this.name,
-  });
+  const _TodayPlannedOutfitData({required this.items, this.name});
 
   final List<ClosetItemPreview> items;
   final String? name;

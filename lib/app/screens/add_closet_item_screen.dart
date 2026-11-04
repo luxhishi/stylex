@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../widgets/app_appearance.dart';
+
 import '../models/closet_analysis_result.dart';
 import '../view_models/add_closet_item_view_model.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -67,9 +69,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message)));
 
     if (!result.success) return;
 
@@ -87,23 +89,17 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
   List<String> _updatedTagsForType(List<String> tags, String type) {
     final typeTag = type.toLowerCase();
     final slugTag = typeTag.replaceAll(' ', '-');
-    final filtered = tags
-        .where((tag) {
-          final normalized = tag.trim().toLowerCase();
-          return !_typeOptions
+    final filtered = tags.where((tag) {
+      final normalized = tag.trim().toLowerCase();
+      return !_typeOptions
               .map((option) => option.toLowerCase())
               .contains(normalized) &&
-              !_typeOptions
-                  .map((option) => option.toLowerCase().replaceAll(' ', '-'))
-                  .contains(normalized);
-        })
-        .toList();
+          !_typeOptions
+              .map((option) => option.toLowerCase().replaceAll(' ', '-'))
+              .contains(normalized);
+    }).toList();
 
-    return [
-      typeTag,
-      if (slugTag != typeTag) slugTag,
-      ...filtered,
-    ];
+    return [typeTag, if (slugTag != typeTag) slugTag, ...filtered];
   }
 
   void _updateGarmentType(String? value) {
@@ -154,8 +150,12 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                             IconButton(
                               onPressed: () => Navigator.of(context).pop(),
                               style: IconButton.styleFrom(
-                                backgroundColor: const Color(0xFFE8F5F2),
-                                foregroundColor: const Color(0xFF0A7A76),
+                                backgroundColor: context.nightSurface(
+                                  const Color(0xFFE8F5F2),
+                                ),
+                                foregroundColor: context.nightInk(
+                                  const Color(0xFF0A7A76),
+                                ),
                               ),
                               icon: const Icon(Icons.close_rounded),
                             ),
@@ -164,7 +164,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                               'STYLEX',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                color: const Color(0xFF2C4B4D),
+                                color: context.nightInk(
+                                  const Color(0xFF2C4B4D),
+                                ),
                                 letterSpacing: 0.6,
                               ),
                             ),
@@ -172,7 +174,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                             Text(
                               widget.sourceLabel,
                               style: theme.textTheme.labelMedium?.copyWith(
-                                color: const Color(0xFF0A7A76),
+                                color: context.nightInk(
+                                  const Color(0xFF0A7A76),
+                                ),
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.5,
                               ),
@@ -181,16 +185,19 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                             Container(
                               width: 28,
                               height: 28,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
-                                  colors: [Color(0xFFEDC598), Color(0xFFD2A27B)],
+                                  colors: context.nightSurfaces([
+                                    Color(0xFFEDC598),
+                                    Color(0xFFD2A27B),
+                                  ]),
                                 ),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.person_rounded,
                                 size: 16,
-                                color: Colors.white,
+                                color: context.nightInk(Colors.white),
                               ),
                             ),
                           ],
@@ -217,12 +224,17 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(18),
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFD7F7F2), Color(0xFFF4FBF9)],
+                                  gradient: LinearGradient(
+                                    colors: context.nightSurfaces([
+                                      Color(0xFFD7F7F2),
+                                      Color(0xFFF4FBF9),
+                                    ]),
                                   ),
-                                  boxShadow: const [
+                                  boxShadow: [
                                     BoxShadow(
-                                      color: Color(0x120A7A76),
+                                      color: context.nightSurface(
+                                        Color(0x120A7A76),
+                                      ),
                                       blurRadius: 18,
                                       offset: Offset(0, 10),
                                     ),
@@ -231,14 +243,17 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 child: Column(
                                   children: [
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Container(
                                           width: 8,
                                           height: 8,
-                                          decoration: const BoxDecoration(
+                                          decoration: BoxDecoration(
                                             shape: BoxShape.circle,
-                                            color: Color(0xFF0A7A76),
+                                            color: context.nightSurface(
+                                              Color(0xFF0A7A76),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -246,14 +261,16 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                           _viewModel.isSaving
                                               ? 'ADDING TO CLOSET'
                                               : usesLocalVision
-                                                  ? 'LOCAL AI TAGS READY'
-                                                  : 'FALLBACK TAGS READY',
-                                          style:
-                                              theme.textTheme.labelMedium?.copyWith(
-                                            color: const Color(0xFF39676A),
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.8,
-                                          ),
+                                              ? 'LOCAL AI TAGS READY'
+                                              : 'FALLBACK TAGS READY',
+                                          style: theme.textTheme.labelMedium
+                                              ?.copyWith(
+                                                color: context.nightInk(
+                                                  const Color(0xFF39676A),
+                                                ),
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 0.8,
+                                              ),
                                         ),
                                       ],
                                     ),
@@ -263,12 +280,13 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                       child: LinearProgressIndicator(
                                         minHeight: 6,
                                         value: _viewModel.isSaving ? null : 1,
-                                        backgroundColor:
-                                            const Color(0xFFDCEFED),
-                                        valueColor:
-                                            const AlwaysStoppedAnimation<Color>(
-                                          Color(0xFF6AE9DE),
+                                        backgroundColor: context.nightSurface(
+                                          const Color(0xFFDCEFED),
                                         ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              context.nightInk(const Color(0xFF6AE9DE)),
+                                            ),
                                       ),
                                     ),
                                     if (!usesLocalVision) ...[
@@ -276,10 +294,13 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                       Text(
                                         'Image decoding fell back to basic guesses for this item, so some labels may be rough.',
                                         textAlign: TextAlign.center,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: const Color(0xFF6A7C7E),
-                                          height: 1.4,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: context.nightInk(
+                                                const Color(0xFF6A7C7E),
+                                              ),
+                                              height: 1.4,
+                                            ),
                                       ),
                                     ],
                                   ],
@@ -290,7 +311,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 'Piece Name',
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF203032),
+                                  color: context.nightInk(
+                                    const Color(0xFF203032),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -300,10 +323,12 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 decoration: InputDecoration(
                                   hintText: 'Classic Tee',
                                   filled: true,
-                                  fillColor: const Color(0xFFF4F8F7),
-                                  prefixIcon: const Icon(
+                                  fillColor: context.nightSurface(
+                                    const Color(0xFFF4F8F7),
+                                  ),
+                                  prefixIcon: Icon(
                                     Icons.edit_outlined,
-                                    color: Color(0xFF0A7A76),
+                                    color: context.nightInk(Color(0xFF0A7A76)),
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(18),
@@ -316,7 +341,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 'Clothing Type',
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF203032),
+                                  color: context.nightInk(
+                                    const Color(0xFF203032),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -339,22 +366,24 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                   helperText:
                                       'Change this if the AI tagged the piece incorrectly.',
                                   filled: true,
-                                  fillColor: const Color(0xFFF4F8F7),
-                                  prefixIcon: const Icon(
+                                  fillColor: context.nightSurface(
+                                    const Color(0xFFF4F8F7),
+                                  ),
+                                  prefixIcon: Icon(
                                     Icons.checkroom_outlined,
-                                    color: Color(0xFF0A7A76),
+                                    color: context.nightInk(Color(0xFF0A7A76)),
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(18),
                                     borderSide: BorderSide.none,
                                   ),
                                 ),
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.keyboard_arrow_down_rounded,
-                                  color: Color(0xFF0A7A76),
+                                  color: context.nightInk(Color(0xFF0A7A76)),
                                 ),
                                 borderRadius: BorderRadius.circular(18),
-                                dropdownColor: Colors.white,
+                                dropdownColor: context.nightSurface(Colors.white),
                               ),
                               const SizedBox(height: 18),
                               AnimatedContainer(
@@ -364,9 +393,11 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(26),
-                                  boxShadow: const [
+                                  boxShadow: [
                                     BoxShadow(
-                                      color: Color(0x180A7A76),
+                                      color: context.nightSurface(
+                                        Color(0x180A7A76),
+                                      ),
                                       blurRadius: 28,
                                       offset: Offset(0, 16),
                                     ),
@@ -377,20 +408,26 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
-                                      Image.file(
-                                        File(widget.imagePath),
-                                        fit: BoxFit.cover,
+                                      NightImage(
+                                        child: Image.file(
+                                          File(widget.imagePath),
+                                          fit: BoxFit.cover,
+                                        ),
                                       ),
                                       DecoratedBox(
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             begin: Alignment.topCenter,
                                             end: Alignment.bottomCenter,
-                                            colors: [
-                                              Colors.white.withValues(alpha: 0.10),
+                                            colors: context.nightSurfaces([
+                                              Colors.white.withValues(
+                                                alpha: 0.10,
+                                              ),
                                               Colors.transparent,
-                                              Colors.black.withValues(alpha: 0.20),
-                                            ],
+                                              Colors.black.withValues(
+                                                alpha: 0.20,
+                                              ),
+                                            ]),
                                           ),
                                         ),
                                       ),
@@ -438,23 +475,34 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton.icon(
-                                    onPressed: _viewModel.isSaving ? null : _saveItem,
+                                    onPressed: _viewModel.isSaving
+                                        ? null
+                                        : _saveItem,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0A7A76),
-                                      foregroundColor: Colors.white,
-                                      padding:
-                                          const EdgeInsets.symmetric(vertical: 18),
+                                      backgroundColor: context.nightSurface(
+                                        const Color(0xFF0A7A76),
+                                      ),
+                                      foregroundColor: context.nightInk(
+                                        Colors.white,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 18,
+                                      ),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                     ),
                                     icon: _viewModel.isSaving
-                                        ? const SizedBox(
+                                        ? SizedBox(
                                             width: 18,
                                             height: 18,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              color: Colors.white,
+                                              color: context.nightInk(
+                                                Colors.white,
+                                              ),
                                             ),
                                           )
                                         : const Icon(
@@ -488,23 +536,32 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                             child: FilledButton.icon(
                               onPressed: _viewModel.isSaving ? null : _saveItem,
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF0A7A76),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                backgroundColor: context.nightSurface(
+                                  const Color(0xFF0A7A76),
+                                ),
+                                foregroundColor: context.nightInk(Colors.white),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
                               icon: _viewModel.isSaving
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Colors.white,
+                                        color: context.nightInk(
+                                          Colors.white,
+                                        ),
                                       ),
                                     )
-                                  : const Icon(Icons.cloud_upload_outlined, size: 18),
+                                  : const Icon(
+                                      Icons.cloud_upload_outlined,
+                                      size: 18,
+                                    ),
                               label: Text(
                                 _viewModel.isSaving
                                     ? 'Saving To Closet'
@@ -533,10 +590,7 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
 }
 
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({
-    required this.label,
-    required this.value,
-  });
+  const _MetaChip({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -545,11 +599,11 @@ class _MetaChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
+        color: context.nightSurface(Colors.white.withValues(alpha: 0.88)),
         borderRadius: BorderRadius.circular(999),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x14000000),
+            color: context.nightSurface(Color(0x14000000)),
             blurRadius: 12,
             offset: Offset(0, 6),
           ),
@@ -562,16 +616,16 @@ class _MetaChip extends StatelessWidget {
             children: [
               TextSpan(
                 text: '$label ',
-                style: const TextStyle(
-                  color: Color(0xFF6A7E80),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF6A7E80)),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               TextSpan(
                 text: value,
-                style: const TextStyle(
-                  color: Color(0xFF2A3E40),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF2A3E40)),
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
                 ),
@@ -593,15 +647,15 @@ class _TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFDFF4EF),
+        color: context.nightSurface(const Color(0xFFDFF4EF)),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Text(
           '#${tag.replaceAll(' ', '-')}',
-          style: const TextStyle(
-            color: Color(0xFF0A7A76),
+          style: TextStyle(
+            color: context.nightInk(Color(0xFF0A7A76)),
             fontSize: 11,
             fontWeight: FontWeight.w800,
           ),

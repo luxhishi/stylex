@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../widgets/app_appearance.dart';
+
 import 'home_screen.dart';
 import '../view_models/auth_view_model.dart';
 import 'auth_screen.dart';
@@ -55,7 +57,7 @@ class _BootScreenState extends State<BootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: AppViewport(
         child: AppPanel(
           borderRadius: 0,
@@ -69,7 +71,7 @@ class _BootScreenState extends State<BootScreen> {
                     fontSize: 42,
                     fontWeight: FontWeight.w300,
                     letterSpacing: -1.2,
-                    color: Color(0xFF9EEDE8),
+                    color: context.nightInk(Color(0xFF9EEDE8)),
                   ),
                 ),
                 SizedBox(height: 16),
@@ -77,9 +79,9 @@ class _BootScreenState extends State<BootScreen> {
                   width: 110,
                   child: LinearProgressIndicator(
                     minHeight: 3,
-                    backgroundColor: Color(0xFFE5F3F1),
+                    backgroundColor: context.nightSurface(Color(0xFFE5F3F1)),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Color(0xFF56DDD5),
+                      context.nightInk(const Color(0xFF56DDD5)),
                     ),
                   ),
                 ),

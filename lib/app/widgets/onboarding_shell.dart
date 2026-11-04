@@ -13,29 +13,35 @@ class SoftBackground extends StatelessWidget {
       return const _DarkBackground().wrap(child);
     }
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
+          colors: context.nightSurfaces([
             Color(0xFFEAF6F3),
             Color(0xFFF8FBFA),
             Color(0xFFE9F6F4),
-          ],
+          ]),
         ),
       ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned(
+          Positioned(
             top: -70,
             right: -30,
-            child: BlurBlob(size: 190, color: Color(0xFFC5F3EE)),
+            child: BlurBlob(
+              size: 190,
+              color: context.nightSurface(Color(0xFFC5F3EE)),
+            ),
           ),
-          const Positioned(
+          Positioned(
             bottom: 100,
             left: -50,
-            child: BlurBlob(size: 210, color: Color(0xFFE1F6F0)),
+            child: BlurBlob(
+              size: 210,
+              color: context.nightSurface(Color(0xFFE1F6F0)),
+            ),
           ),
           child,
         ],
@@ -60,11 +66,7 @@ class _DarkBackground {
 }
 
 class BlurBlob extends StatelessWidget {
-  const BlurBlob({
-    required this.size,
-    required this.color,
-    super.key,
-  });
+  const BlurBlob({required this.size, required this.color, super.key});
 
   final double size;
   final Color color;
@@ -79,7 +81,7 @@ class BlurBlob extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.9),
+              color: context.nightSurface(color.withValues(alpha: 0.9)),
               blurRadius: 60,
               spreadRadius: 24,
             ),
@@ -105,12 +107,14 @@ class GlassCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
+        color: context.nightSurface(Colors.white.withValues(alpha: 0.82)),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
-        boxShadow: const [
+        border: Border.all(
+          color: context.nightSurface(Colors.white.withValues(alpha: 0.9)),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x140A7A76),
+            color: context.nightSurface(Color(0x140A7A76)),
             blurRadius: 36,
             offset: Offset(0, 16),
           ),
@@ -165,9 +169,11 @@ class AppPanel extends StatelessWidget {
       height: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: context.adaptive(
-          Colors.white.withValues(alpha: 0.86),
-          const Color(0xFF142323),
+        color: context.nightSurface(
+          context.adaptive(
+            Colors.white.withValues(alpha: 0.86),
+            const Color(0xFF142323),
+          ),
         ),
         borderRadius: BorderRadius.circular(borderRadius),
       ),
@@ -202,7 +208,7 @@ class SegmentedToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F4),
+        color: context.nightSurface(const Color(0xFFF1F5F4)),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
@@ -244,7 +250,9 @@ class SegmentButton extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
-        color: selected ? Colors.white : Colors.transparent,
+        color: context.nightSurface(
+          selected ? Colors.white : Colors.transparent,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: InkWell(
@@ -256,7 +264,7 @@ class SegmentButton extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: const Color(0xFF2D3A3C),
+              color: context.nightInk(const Color(0xFF2D3A3C)),
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
@@ -276,10 +284,10 @@ class FieldLabel extends StatelessWidget {
     return Text(
       text.toUpperCase(),
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: const Color(0xFF697779),
-            letterSpacing: 1.8,
-            fontWeight: FontWeight.w700,
-          ),
+        color: context.nightInk(const Color(0xFF697779)),
+        letterSpacing: 1.8,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
@@ -326,10 +334,13 @@ class _StyledInputState extends State<StyledInput> {
       validator: widget.validator,
       decoration: InputDecoration(
         filled: true,
-        fillColor: const Color(0xFFDCE9E7),
+        fillColor: context.nightSurface(const Color(0xFFDCE9E7)),
         hintText: widget.hintText,
-        hintStyle: const TextStyle(color: Color(0xFF748182)),
-        prefixIcon: Icon(widget.icon, color: const Color(0xFF6B797A)),
+        hintStyle: TextStyle(color: context.nightInk(Color(0xFF748182))),
+        prefixIcon: Icon(
+          widget.icon,
+          color: context.nightInk(const Color(0xFF6B797A)),
+        ),
         suffixIcon: widget.trailing == null
             ? null
             : IconButton(
@@ -341,29 +352,27 @@ class _StyledInputState extends State<StyledInput> {
                 icon: Icon(
                   widget.obscureText
                       ? (_isObscured
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined)
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined)
                       : widget.trailing,
-                  color: const Color(0xFF6B797A),
+                  color: context.nightInk(const Color(0xFF6B797A)),
                 ),
               ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
       ),
     );
   }
 }
 
 class SocialButton extends StatelessWidget {
-  const SocialButton({
-    required this.icon,
-    required this.label,
-    super.key,
-  });
+  const SocialButton({required this.icon, required this.label, super.key});
 
   final IconData icon;
   final String label;
@@ -373,13 +382,11 @@ class SocialButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () {},
       style: OutlinedButton.styleFrom(
-        backgroundColor: const Color(0xFFF3F8F7),
-        foregroundColor: const Color(0xFF425254),
+        backgroundColor: context.nightSurface(const Color(0xFFF3F8F7)),
+        foregroundColor: context.nightInk(const Color(0xFF425254)),
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       icon: Icon(icon, size: 18),
       label: Text(label),
@@ -421,11 +428,14 @@ class PreferenceTile extends StatelessWidget {
         constraints: BoxConstraints(minHeight: minHeight),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF73E8DF) : const Color(0xFFF3F8F7),
+          color: context.nightSurface(
+            selected ? const Color(0xFF73E8DF) : const Color(0xFFF3F8F7),
+          ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color:
-                selected ? const Color(0xFF5ED8CF) : const Color(0xFFE4EEEB),
+            color: context.nightSurface(
+              selected ? const Color(0xFF5ED8CF) : const Color(0xFFE4EEEB),
+            ),
           ),
         ),
         child: Column(
@@ -435,10 +445,10 @@ class PreferenceTile extends StatelessWidget {
             Align(
               alignment: Alignment.topRight,
               child: selected
-                  ? const Icon(
+                  ? Icon(
                       Icons.check_circle,
                       size: 18,
-                      color: Color(0xFF123C3A),
+                      color: context.nightInk(Color(0xFF123C3A)),
                     )
                   : const SizedBox(height: 18),
             ),
@@ -452,7 +462,7 @@ class PreferenceTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: data.wide ? 18 : 24,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF243234),
+                  color: context.nightInk(const Color(0xFF243234)),
                   height: 1,
                 ),
               ),
@@ -460,11 +470,11 @@ class PreferenceTile extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               data.subtitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.1,
-                color: Color(0xFF6C7A7B),
+                color: context.nightInk(Color(0xFF6C7A7B)),
               ),
             ),
           ],

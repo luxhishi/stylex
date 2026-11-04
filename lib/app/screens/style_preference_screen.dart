@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/app_appearance.dart';
+
 import 'home_screen.dart';
 import '../view_models/style_preference_view_model.dart';
 import '../widgets/onboarding_shell.dart';
@@ -34,16 +36,14 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message)));
 
     if (!result.success) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const HomeScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
     );
   }
 
@@ -80,7 +80,9 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                                 'Stylex',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0A7A76),
+                                  color: context.nightInk(
+                                    const Color(0xFF0A7A76),
+                                  ),
                                 ),
                               ),
                               const Spacer(),
@@ -88,7 +90,9 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                                 width: 18,
                                 height: 3,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF0A7A76),
+                                  color: context.nightSurface(
+                                    const Color(0xFF0A7A76),
+                                  ),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
@@ -107,7 +111,9 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                           Text(
                             'Tell us what moves you. We will curate your digital atelier based on your unique aesthetic.',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: const Color(0xFF6D7A7B),
+                              color: context.nightInk(
+                                const Color(0xFF6D7A7B),
+                              ),
                               height: 1.5,
                             ),
                           ),
@@ -131,7 +137,10 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                       ),
                     ),
                   ),
-                  const Divider(height: 1, color: Color(0xFFE3EFEC)),
+                  Divider(
+                    height: 1,
+                    color: context.nightOutline(Color(0xFFE3EFEC)),
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
                     child: Column(
@@ -140,24 +149,26 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
-                            onPressed:
-                                _viewModel.isSaving ? null : _savePreference,
+                            onPressed: _viewModel.isSaving
+                                ? null
+                                : _savePreference,
                             style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF0A7A76),
-                              foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 18),
+                              backgroundColor: context.nightSurface(
+                                const Color(0xFF0A7A76),
+                              ),
+                              foregroundColor: context.nightInk(Colors.white),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(28),
                               ),
                             ),
                             child: _viewModel.isSaving
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 22,
                                     height: 22,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.2,
-                                      color: Colors.white,
+                                      color: context.nightInk(Colors.white),
                                     ),
                                   )
                                 : const Row(
@@ -177,11 +188,11 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                         Center(
                           child: TextButton(
                             onPressed: _viewModel.isSaving ? null : () {},
-                            child: const Text(
+                            child: Text(
                               'SKIP FOR NOW',
                               style: TextStyle(
                                 letterSpacing: 1.4,
-                                color: Color(0xFF7A8788),
+                                color: context.nightInk(Color(0xFF7A8788)),
                               ),
                             ),
                           ),

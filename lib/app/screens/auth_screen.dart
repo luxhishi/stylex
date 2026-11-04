@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/app_appearance.dart';
+
 import 'home_screen.dart';
 import '../view_models/auth_view_model.dart';
 import '../view_models/home_view_model.dart';
@@ -41,9 +43,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message)));
 
     if (!result.success) return;
 
@@ -89,7 +91,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: EdgeInsets.only(bottom: keyboardInset + 12),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
                       child: Column(
                         children: [
                           Text(
@@ -97,7 +101,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             style: theme.textTheme.displaySmall?.copyWith(
                               fontSize: 34,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0A7A76),
+                              color: context.nightInk(
+                                const Color(0xFF0A7A76),
+                              ),
                               letterSpacing: -1.3,
                             ),
                           ),
@@ -106,7 +112,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             'THE DIGITAL ATELIER',
                             style: theme.textTheme.labelSmall?.copyWith(
                               letterSpacing: 3.2,
-                              color: const Color(0xFF758284),
+                              color: context.nightInk(
+                                const Color(0xFF758284),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 28),
@@ -134,9 +142,12 @@ class _AuthScreenState extends State<AuthScreen> {
                                   keyboardType: TextInputType.emailAddress,
                                   validator: (value) {
                                     final email = value?.trim() ?? '';
-                                    if (email.isEmpty) return 'Enter your email address.';
-                                    final emailPattern =
-                                        RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+                                    if (email.isEmpty) {
+                                      return 'Enter your email address.';
+                                    }
+                                    final emailPattern = RegExp(
+                                      r'^[^@]+@[^@]+\.[^@]+$',
+                                    );
                                     if (!emailPattern.hasMatch(email)) {
                                       return 'Enter a valid email address.';
                                     }
@@ -146,14 +157,19 @@ class _AuthScreenState extends State<AuthScreen> {
                                 const SizedBox(height: 16),
                                 Row(
                                   children: [
-                                    const Expanded(child: FieldLabel('Password')),
+                                    const Expanded(
+                                      child: FieldLabel('Password'),
+                                    ),
                                     Text(
                                       'FORGOT?',
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: 1,
-                                        color: const Color(0xFF0A7A76),
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 1,
+                                            color: context.nightInk(
+                                              const Color(0xFF0A7A76),
+                                            ),
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -166,8 +182,11 @@ class _AuthScreenState extends State<AuthScreen> {
                                   obscureText: true,
                                   validator: (value) {
                                     final password = value ?? '';
-                                    if (password.isEmpty) return 'Enter your password.';
-                                    if (!_viewModel.isLogin && password.length < 6) {
+                                    if (password.isEmpty) {
+                                      return 'Enter your password.';
+                                    }
+                                    if (!_viewModel.isLogin &&
+                                        password.length < 6) {
                                       return 'Use at least 6 characters.';
                                     }
                                     return null;
@@ -212,24 +231,32 @@ class _AuthScreenState extends State<AuthScreen> {
                                 SizedBox(
                                   width: double.infinity,
                                   child: FilledButton(
-                                    onPressed:
-                                        _viewModel.isSubmitting ? null : _handleSubmit,
+                                    onPressed: _viewModel.isSubmitting
+                                        ? null
+                                        : _handleSubmit,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0A7A76),
-                                      foregroundColor: Colors.white,
-                                      padding:
-                                          const EdgeInsets.symmetric(vertical: 18),
+                                      backgroundColor: context.nightSurface(
+                                        const Color(0xFF0A7A76),
+                                      ),
+                                      foregroundColor: context.nightInk(
+                                        Colors.white,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 18,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(28),
                                       ),
                                     ),
                                     child: _viewModel.isSubmitting
-                                        ? const SizedBox(
+                                        ? SizedBox(
                                             width: 22,
                                             height: 22,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2.2,
-                                              color: Colors.white,
+                                              color: context.nightInk(
+                                                Colors.white,
+                                              ),
                                             ),
                                           )
                                         : Text(
@@ -247,12 +274,17 @@ class _AuthScreenState extends State<AuthScreen> {
                                         ? null
                                         : _viewModel.toggleAuthMode,
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF0A7A76),
-                                      side: const BorderSide(
-                                        color: Color(0xFFD6E6E3),
+                                      foregroundColor: context.nightInk(
+                                        const Color(0xFF0A7A76),
                                       ),
-                                      padding:
-                                          const EdgeInsets.symmetric(vertical: 18),
+                                      side: BorderSide(
+                                        color: context.nightOutline(
+                                          Color(0xFFD6E6E3),
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 18,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(28),
                                       ),
@@ -266,85 +298,101 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                                 const SizedBox(height: 24),
                                 Row(
-                            children: [
-                              const Expanded(
-                                child: Divider(color: Color(0xFFD7E4E1)),
-                              ),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'OR CONTINUE WITH',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: const Color(0xFF93A2A2),
-                                    letterSpacing: 1.8,
-                                  ),
+                                  children: [
+                                    Expanded(
+                                      child: Divider(
+                                        color: context.nightOutline(
+                                          Color(0xFFD7E4E1),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: Text(
+                                        'OR CONTINUE WITH',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              color: context.nightInk(
+                                                const Color(0xFF93A2A2),
+                                              ),
+                                              letterSpacing: 1.8,
+                                            ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Divider(
+                                        color: context.nightOutline(
+                                          Color(0xFFD7E4E1),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const Expanded(
-                                child: Divider(color: Color(0xFFD7E4E1)),
-                              ),
-                            ],
+                                const SizedBox(height: 18),
+                                const Row(
+                                  children: [
+                                    Expanded(
+                                      child: SocialButton(
+                                        icon: Icons.circle_outlined,
+                                        label: 'Google',
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: SocialButton(
+                                        icon: Icons.facebook_outlined,
+                                        label: 'Facebook',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 18),
-                          const Row(
-                            children: [
-                              Expanded(
-                                child: SocialButton(
-                                  icon: Icons.circle_outlined,
-                                  label: 'Google',
+                          Text.rich(
+                            TextSpan(
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: context.nightInk(
+                                  const Color(0xFF81908F),
                                 ),
+                                height: 1.5,
                               ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: SocialButton(
-                                  icon: Icons.facebook_outlined,
-                                  label: 'Facebook',
+                              children: [
+                                TextSpan(
+                                  text: 'By continuing, you agree to our ',
                                 ),
-                              ),
-                            ],
+                                TextSpan(
+                                  text: 'Terms of Service',
+                                  style: TextStyle(
+                                    color: context.nightInk(Color(0xFF0A7A76)),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextSpan(text: ' and '),
+                                TextSpan(
+                                  text: 'Privacy Policy',
+                                  style: TextStyle(
+                                    color: context.nightInk(Color(0xFF0A7A76)),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextSpan(text: '.'),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Text.rich(
-                      TextSpan(
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFF81908F),
-                          height: 1.5,
-                        ),
-                        children: const [
-                          TextSpan(text: 'By continuing, you agree to our '),
-                          TextSpan(
-                            text: 'Terms of Service',
-                            style: TextStyle(
-                              color: Color(0xFF0A7A76),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(text: ' and '),
-                          TextSpan(
-                            text: 'Privacy Policy',
-                            style: TextStyle(
-                              color: Color(0xFF0A7A76),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(text: '.'),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                  );
+                },
               ),
             ),
-          );
+          ),
+        );
       },
     );
   }

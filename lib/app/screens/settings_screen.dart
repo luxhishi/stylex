@@ -34,26 +34,6 @@ class SettingsScreen extends StatefulWidget {
     );
   }
 
-  static void openFromMenu(BuildContext context) {
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 280);
-    Navigator.of(context).push<void>(
-      PageRouteBuilder<void>(
-        transitionDuration: duration,
-        reverseTransitionDuration: duration,
-        pageBuilder: (_, _, _) => const SettingsScreen(),
-        transitionsBuilder: (_, animation, _, child) => SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(-1, 0),
-            end: Offset.zero,
-          ).chain(CurveTween(curve: Curves.easeInOutCubic)).animate(animation),
-          child: child,
-        ),
-      ),
-    );
-  }
-
   const SettingsScreen({super.key});
 
   @override
@@ -67,16 +47,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _openStylePreference() async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const StylePreferenceScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const StylePreferenceScreen()),
     );
   }
 
   void _showComingSoon(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label is coming soon.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$label is coming soon.')));
   }
 
   Future<void> _handleSignOut() async {
@@ -95,16 +73,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
 
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(
-          builder: (_) => const AuthScreen(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const AuthScreen()),
         (route) => false,
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Log out failed: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Log out failed: $error')));
     } finally {
       if (mounted) {
         setState(() => _isSigningOut = false);
@@ -115,34 +91,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _handleTabSelection(AppTab tab) {
     if (tab == AppTab.home) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const HomeScreen(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
       );
       return;
     }
 
     if (tab == AppTab.closet) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const ClosetScreen(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const ClosetScreen()),
       );
       return;
     }
 
     if (tab == AppTab.outfits) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const OutfitsScreen(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const OutfitsScreen()),
       );
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${tab.name} is coming soon.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${tab.name} is coming soon.')));
   }
 
   @override
@@ -178,14 +148,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Settings',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.onSurface,
+                        color: context.nightInk(
+                          theme.colorScheme.onSurface,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Personalize your digital styling experience',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF8C9A9D),
+                        color: context.nightInk(const Color(0xFF8C9A9D)),
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.2,
                       ),
@@ -194,8 +166,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsCard(
                       child: _SettingsTile(
                         icon: Icons.person_rounded,
-                        iconBackground: const Color(0xFFE4F5F1),
-                        iconColor: const Color(0xFF0A7A76),
+                        iconBackground: context.nightSurface(
+                          const Color(0xFFE4F5F1),
+                        ),
+                        iconColor: context.nightInk(const Color(0xFF0A7A76)),
                         title: 'Account Management',
                         subtitle: accountSubtitle,
                         onTap: () => _showComingSoon('Account management'),
@@ -209,8 +183,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           _SettingsTile(
                             icon: Icons.auto_awesome_rounded,
-                            iconBackground: const Color(0xFFE6F8F5),
-                            iconColor: const Color(0xFF1A9D95),
+                            iconBackground: context.nightSurface(
+                              const Color(0xFFE6F8F5),
+                            ),
+                            iconColor: context.nightInk(
+                              const Color(0xFF1A9D95),
+                            ),
                             title: 'Style Preferences',
                             subtitle: 'Minimalist and tidy',
                             onTap: _openStylePreference,
@@ -218,8 +196,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _TileDivider(),
                           _SettingsTile(
                             icon: Icons.thermostat_rounded,
-                            iconBackground: const Color(0xFFE3F6F7),
-                            iconColor: const Color(0xFF2A97A0),
+                            iconBackground: context.nightSurface(
+                              const Color(0xFFE3F6F7),
+                            ),
+                            iconColor: context.nightInk(
+                              const Color(0xFF2A97A0),
+                            ),
                             title: 'Weather Settings',
                             subtitle: 'Location and temperature',
                             trailingLabel: 'Celsius',
@@ -228,8 +210,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _TileDivider(),
                           _SettingsSwitchTile(
                             icon: Icons.auto_fix_high_rounded,
-                            iconBackground: const Color(0xFFE4F2FB),
-                            iconColor: const Color(0xFF4A8FC7),
+                            iconBackground: context.nightSurface(
+                              const Color(0xFFE4F2FB),
+                            ),
+                            iconColor: context.nightInk(
+                              const Color(0xFF4A8FC7),
+                            ),
                             title: 'AI Smart Sorting',
                             subtitle: 'Intelligent wardrobe organizing',
                             value: _smartSortingEnabled,
@@ -248,8 +234,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           _SettingsSwitchTile(
                             icon: Icons.dark_mode_outlined,
-                            iconBackground: const Color(0xFFE4F7F1),
-                            iconColor: const Color(0xFF0A7A76),
+                            iconBackground: context.nightSurface(
+                              const Color(0xFFE4F7F1),
+                            ),
+                            iconColor: context.nightInk(
+                              const Color(0xFF0A7A76),
+                            ),
                             title: 'Dark mode',
                             subtitle: 'Use a darker appearance',
                             value: context.isDark,
@@ -258,8 +248,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _TileDivider(),
                           _SettingsSwitchTile(
                             icon: Icons.notifications_rounded,
-                            iconBackground: const Color(0xFFE4F7F1),
-                            iconColor: const Color(0xFF2A9E7A),
+                            iconBackground: context.nightSurface(
+                              const Color(0xFFE4F7F1),
+                            ),
+                            iconColor: context.nightInk(
+                              const Color(0xFF2A9E7A),
+                            ),
                             title: 'Notifications',
                             subtitle: 'Daily outfit ideas and reminders',
                             value: _notificationsEnabled,
@@ -270,8 +264,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _TileDivider(),
                           _SettingsTile(
                             icon: Icons.lock_rounded,
-                            iconBackground: const Color(0xFFEAF3F1),
-                            iconColor: const Color(0xFF4A6E71),
+                            iconBackground: context.nightSurface(
+                              const Color(0xFFEAF3F1),
+                            ),
+                            iconColor: context.nightInk(
+                              const Color(0xFF4A6E71),
+                            ),
                             title: 'Privacy',
                             subtitle: 'Data sharing and visibility',
                             onTap: () => _showComingSoon('Privacy settings'),
@@ -284,32 +282,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       width: double.infinity,
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE9EFEF),
+                          color: context.nightSurface(const Color(0xFFE9EFEF)),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: TextButton(
                           onPressed: _isSigningOut ? null : _handleSignOut,
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFD45F5D),
+                            foregroundColor: context.nightInk(
+                              const Color(0xFFD45F5D),
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
                           ),
                           child: _isSigningOut
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 18,
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Color(0xFFD45F5D),
+                                    color: context.nightInk(
+                                      Color(0xFFD45F5D),
+                                    ),
                                   ),
                                 )
                               : const Text(
                                   'Log Out',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w800),
                                 ),
                         ),
                       ),
@@ -362,11 +362,11 @@ class _SettingsHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF5F2),
+        color: context.nightSurface(const Color(0xFFEFF5F2)),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x140A7A76),
+            color: context.nightSurface(Color(0x140A7A76)),
             blurRadius: 18,
             offset: Offset(0, 10),
           ),
@@ -379,8 +379,8 @@ class _SettingsHeader extends StatelessWidget {
             IconButton(
               onPressed: onBackPressed,
               style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF0A7A76),
+                backgroundColor: context.nightSurface(Colors.white),
+                foregroundColor: context.nightInk(const Color(0xFF0A7A76)),
                 minimumSize: const Size(38, 38),
               ),
               icon: const Icon(Icons.menu_rounded, size: 18),
@@ -390,10 +390,10 @@ class _SettingsHeader extends StatelessWidget {
               child: Text(
                 'STYLEX',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: const Color(0xFF0A7A76),
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                    ),
+                  color: context.nightInk(const Color(0xFF0A7A76)),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
               ),
             ),
             _AvatarBadge(label: displayName),
@@ -422,17 +422,17 @@ class _AvatarBadge extends StatelessWidget {
     return Container(
       width: 34,
       height: 34,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Color(0xFFF3D6B4), Color(0xFFDDAA86)],
+          colors: context.nightSurfaces([Color(0xFFF3D6B4), Color(0xFFDDAA86)]),
         ),
       ),
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: context.nightInk(Colors.white),
           fontWeight: FontWeight.w800,
           fontSize: 11,
         ),
@@ -451,10 +451,10 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: const Color(0xFF9BA8AB),
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.8,
-          ),
+        color: context.nightInk(const Color(0xFF9BA8AB)),
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.8,
+      ),
     );
   }
 }
@@ -468,15 +468,16 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: context.adaptive(
-          const Color(0xFFF4F6F6),
-          const Color(0xFF203333),
+        color: context.nightSurface(
+          context.adaptive(const Color(0xFFF4F6F6), const Color(0xFF203333)),
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: context.adaptive(
-            const Color(0xFFE5ECEB),
-            Theme.of(context).colorScheme.outlineVariant,
+          color: context.nightSurface(
+            context.adaptive(
+              const Color(0xFFE5ECEB),
+              Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
         ),
       ),
@@ -519,7 +520,7 @@ class _SettingsTile extends StatelessWidget {
             _TileIcon(
               icon: icon,
               background: iconBackground,
-              color: iconColor,
+              color: context.nightSurface(iconColor),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -529,9 +530,11 @@ class _SettingsTile extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color: context.adaptive(
-                        const Color(0xFF253537),
-                        Theme.of(context).colorScheme.onSurface,
+                      color: context.nightInk(
+                        context.adaptive(
+                          const Color(0xFF253537),
+                          Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -541,9 +544,11 @@ class _SettingsTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: context.adaptive(
-                        const Color(0xFF8B999B),
-                        Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: context.nightInk(
+                        context.adaptive(
+                          const Color(0xFF8B999B),
+                          Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -555,17 +560,17 @@ class _SettingsTile extends StatelessWidget {
             if (trailingLabel != null) ...[
               Text(
                 trailingLabel!,
-                style: const TextStyle(
-                  color: Color(0xFF4E9FA2),
+                style: TextStyle(
+                  color: context.nightInk(Color(0xFF4E9FA2)),
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 8),
             ],
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFFB4BEBF),
+              color: context.nightInk(Color(0xFFB4BEBF)),
               size: 18,
             ),
           ],
@@ -603,7 +608,7 @@ class _SettingsSwitchTile extends StatelessWidget {
           _TileIcon(
             icon: icon,
             background: iconBackground,
-            color: iconColor,
+            color: context.nightSurface(iconColor),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -613,9 +618,11 @@ class _SettingsSwitchTile extends StatelessWidget {
                 Text(
                   title,
                   style: TextStyle(
-                    color: context.adaptive(
-                      const Color(0xFF253537),
-                      Theme.of(context).colorScheme.onSurface,
+                    color: context.nightInk(
+                      context.adaptive(
+                        const Color(0xFF253537),
+                        Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
@@ -625,9 +632,11 @@ class _SettingsSwitchTile extends StatelessWidget {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: context.adaptive(
-                      const Color(0xFF8B999B),
-                      Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: context.nightInk(
+                      context.adaptive(
+                        const Color(0xFF8B999B),
+                        Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -639,10 +648,10 @@ class _SettingsSwitchTile extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: const Color(0xFF0A7A76),
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: const Color(0xFFD0DADA),
+            activeThumbColor: context.nightInk(Colors.white),
+            activeTrackColor: context.nightSurface(const Color(0xFF0A7A76)),
+            inactiveThumbColor: context.nightInk(Colors.white),
+            inactiveTrackColor: context.nightSurface(const Color(0xFFD0DADA)),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
@@ -668,10 +677,10 @@ class _TileIcon extends StatelessWidget {
       width: 28,
       height: 28,
       decoration: BoxDecoration(
-        color: background,
+        color: context.nightSurface(background),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: color, size: 15),
+      child: Icon(icon, color: context.nightInk(color), size: 15),
     );
   }
 }
@@ -681,12 +690,9 @@ class _TileDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.only(left: 40),
-      child: Divider(
-        height: 1,
-        color: Color(0xFFE3EAE9),
-      ),
+      child: Divider(height: 1, color: context.nightOutline(Color(0xFFE3EAE9))),
     );
   }
 }

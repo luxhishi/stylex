@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/config/supabase_config.dart';
@@ -42,8 +43,55 @@ class StylexApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(
             seedColor: seed,
             brightness: Brightness.dark,
+            primary: const Color(0xFF72B7AE),
+            onPrimary: const Color(0xFF102622),
+            primaryContainer: const Color(0xFF1A4742),
+            onPrimaryContainer: const Color(0xFFC1D4CD),
+            secondary: const Color(0xFF8CB7AF),
+            surface: const Color(0xFF142321),
+            onSurface: const Color(0xFFCCD8D5),
+            onSurfaceVariant: const Color(0xFF9AAFA9),
+            outline: const Color(0xFF4A625B),
+            outlineVariant: const Color(0xFF354845),
+            error: const Color(0xFFCF9693),
           ),
           scaffoldBackgroundColor: const Color(0xFF101C1C),
+          textTheme: ThemeData.dark().textTheme.apply(
+            bodyColor: const Color(0xFFCCD8D5),
+            displayColor: const Color(0xFFCCD8D5),
+          ),
+          canvasColor: const Color(0xFF142321),
+          cardColor: const Color(0xFF1B2C28),
+          dialogTheme: const DialogThemeData(
+            backgroundColor: Color(0xFF1B2C28),
+            surfaceTintColor: Colors.transparent,
+          ),
+          bottomSheetTheme: const BottomSheetThemeData(
+            backgroundColor: Color(0xFF1B2C28),
+            modalBackgroundColor: Color(0xFF1B2C28),
+            surfaceTintColor: Colors.transparent,
+          ),
+          inputDecorationTheme: const InputDecorationTheme(
+            filled: true,
+            fillColor: Color(0xFF20342E),
+          ),
+          snackBarTheme: const SnackBarThemeData(
+            backgroundColor: Color(0xFF293D35),
+            contentTextStyle: TextStyle(color: Color(0xFFCCD8D5)),
+            actionTextColor: Color(0xFF72B7AE),
+          ),
+        ),
+        builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value: Theme.of(context).brightness == Brightness.dark
+              ? const SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: Color(0xFF101C1C),
+                  statusBarIconBrightness: Brightness.light,
+                  systemNavigationBarIconBrightness: Brightness.light,
+                  statusBarBrightness: Brightness.dark,
+                )
+              : SystemUiOverlayStyle.dark,
+          child: child ?? const SizedBox.shrink(),
         ),
         debugShowCheckedModeBanner: false,
         title: 'Stylex',
@@ -56,9 +104,9 @@ class StylexApp extends StatelessWidget {
             brightness: Brightness.light,
           ),
           textTheme: ThemeData.light().textTheme.apply(
-                bodyColor: const Color(0xFF2E3B3D),
-                displayColor: const Color(0xFF2E3B3D),
-              ),
+            bodyColor: const Color(0xFF2E3B3D),
+            displayColor: const Color(0xFF2E3B3D),
+          ),
         ),
         home: SupabaseConfig.isConfigured
             ? const BootScreen()
@@ -113,18 +161,12 @@ class SupabaseSetupScreen extends StatelessWidget {
               SizedBox(height: 12),
               Text(
                 'Supabase not configured',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
               ),
               SizedBox(height: 12),
               Text(
                 'Open lib/app/config/supabase_config.dart and replace the placeholder URL and anon key with your Supabase project credentials.',
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.5,
-                ),
+                style: TextStyle(fontSize: 15, height: 1.5),
               ),
               SizedBox(height: 16),
               SelectableText(

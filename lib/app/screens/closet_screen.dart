@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../widgets/app_appearance.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,12 +39,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
   static const _allItemsFilter = 'All Items';
   static const _recentlyAddedFilter = 'Recently Added';
   static const _unusedFilter = 'Unused';
-  static const _categoryFilters = [
-    'Outerwear',
-    'Tops',
-    'Bottoms',
-    'Shoes',
-  ];
+  static const _categoryFilters = ['Outerwear', 'Tops', 'Bottoms', 'Shoes'];
 
   final ImagePicker _picker = ImagePicker();
   final ClosetAnalysisService _analysisService = ClosetAnalysisService();
@@ -63,10 +60,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
   }
 
   Future<void> _initializeCloset() async {
-    await Future.wait([
-      _loadClosetCount(),
-      _loadStylePreference(),
-    ]);
+    await Future.wait([_loadClosetCount(), _loadStylePreference()]);
   }
 
   Future<void> _loadClosetCount() async {
@@ -90,17 +84,20 @@ class _ClosetScreenState extends State<ClosetScreen> {
   }
 
   Future<Set<String>> _loadUnusedItemIds(List<ClosetItemPreview> items) async {
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final currentUserId =
+        Supabase.instance.client.auth.currentUser?.id ?? 'guest';
     final prefs = await SharedPreferences.getInstance();
-    final rawSavedLooks = prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ??
+    final rawSavedLooks =
+        prefs.getStringList('$_savedOutfitsKeyPrefix:$currentUserId') ??
         const [];
     final usedItemIds = <String>{};
 
     for (final entry in rawSavedLooks) {
       try {
         final json = jsonDecode(entry) as Map<String, dynamic>;
-        final itemIds = ((json['item_ids'] as List<dynamic>?) ?? const [])
-            .map((item) => item.toString());
+        final itemIds = ((json['item_ids'] as List<dynamic>?) ?? const []).map(
+          (item) => item.toString(),
+        );
         usedItemIds.addAll(itemIds);
       } catch (_) {
         continue;
@@ -132,11 +129,12 @@ class _ClosetScreenState extends State<ClosetScreen> {
   }
 
   List<String> get _availableFilters => [
-        _allItemsFilter,
-        _recentlyAddedFilter,
-        if (widget.showUnusedFilter || _selectedFilter == _unusedFilter) _unusedFilter,
-        ..._categoryFilters,
-      ];
+    _allItemsFilter,
+    _recentlyAddedFilter,
+    if (widget.showUnusedFilter || _selectedFilter == _unusedFilter)
+      _unusedFilter,
+    ..._categoryFilters,
+  ];
 
   Future<void> _loadStylePreference() async {
     final user = Supabase.instance.client.auth.currentUser;
@@ -203,14 +201,14 @@ class _ClosetScreenState extends State<ClosetScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.nightSurface(Colors.transparent),
       builder: (context) {
         final theme = Theme.of(context);
         return Padding(
           padding: const EdgeInsets.fromLTRB(14, 56, 14, 14),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.nightSurface(Colors.white),
               borderRadius: BorderRadius.circular(28),
             ),
             child: ConstrainedBox(
@@ -228,7 +226,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         width: 42,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD8E5E1),
+                          color: context.nightSurface(const Color(0xFFD8E5E1)),
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
@@ -238,14 +236,14 @@ class _ClosetScreenState extends State<ClosetScreen> {
                       '$_styleDisplayName Lookbook',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: const Color(0xFF203032),
+                        color: context.nightInk(const Color(0xFF203032)),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Style AI built ${lookbook.length} outfit ideas from your current closet. Save them to your atelier or open the outfit maker to tweak them.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF6A7C7E),
+                        color: context.nightInk(const Color(0xFF6A7C7E)),
                         height: 1.45,
                       ),
                     ),
@@ -256,7 +254,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         itemCount: lookbook.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
-                          return _LookbookSuggestionCard(entry: lookbook[index]);
+                          return _LookbookSuggestionCard(
+                            entry: lookbook[index],
+                          );
                         },
                       ),
                     ),
@@ -267,7 +267,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         onPressed: () async {
                           final navigator = Navigator.of(context);
                           final messenger = ScaffoldMessenger.of(this.context);
-                          final addedCount = await _saveGeneratedLookbook(lookbook);
+                          final addedCount = await _saveGeneratedLookbook(
+                            lookbook,
+                          );
                           if (!mounted) return;
                           navigator.pop();
                           messenger.showSnackBar(
@@ -281,14 +283,19 @@ class _ClosetScreenState extends State<ClosetScreen> {
                           );
                         },
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0A7A76),
-                          foregroundColor: Colors.white,
+                          backgroundColor: context.nightSurface(
+                            const Color(0xFF0A7A76),
+                          ),
+                          foregroundColor: context.nightInk(Colors.white),
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
-                        icon: const Icon(Icons.bookmark_added_rounded, size: 18),
+                        icon: const Icon(
+                          Icons.bookmark_added_rounded,
+                          size: 18,
+                        ),
                         label: const Text('Save Lookbook To Outfits'),
                       ),
                     ),
@@ -305,8 +312,12 @@ class _ClosetScreenState extends State<ClosetScreen> {
                           );
                         },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF203032),
-                          side: const BorderSide(color: Color(0xFFD6E5E1)),
+                          foregroundColor: context.nightInk(
+                            const Color(0xFF203032),
+                          ),
+                          side: BorderSide(
+                            color: context.nightOutline(Color(0xFFD6E5E1)),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(999),
@@ -329,7 +340,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
     List<_GeneratedLookbookEntry> lookbook,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final currentUserId =
+        Supabase.instance.client.auth.currentUser?.id ?? 'guest';
     final storageKey = '$_savedOutfitsKeyPrefix:$currentUserId';
     final existingEntries = prefs.getStringList(storageKey) ?? const [];
     final signatures = <String>{};
@@ -369,13 +381,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
 
     if (addedCount == 0) return 0;
 
-    await prefs.setStringList(
-      storageKey,
-      [
-        ...newEntries,
-        ...existingEntries,
-      ],
-    );
+    await prefs.setStringList(storageKey, [...newEntries, ...existingEntries]);
     HomeScreen.clearSessionCache();
 
     return addedCount;
@@ -484,7 +490,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.nightSurface(Colors.transparent),
       builder: (context) {
         return SafeArea(
           top: false,
@@ -492,7 +498,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.nightSurface(Colors.white),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Padding(
@@ -501,19 +507,19 @@ class _ClosetScreenState extends State<ClosetScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Add To Closet',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF203032),
+                        color: context.nightInk(Color(0xFF203032)),
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'Choose how you want to add your clothing item.',
                       style: TextStyle(
-                        color: Color(0xFF6A7C7E),
+                        color: context.nightInk(Color(0xFF6A7C7E)),
                         height: 1.45,
                       ),
                     ),
@@ -559,7 +565,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
     final result = await showModalBottomSheet<_ClosetItemEditResult>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.nightSurface(Colors.transparent),
       builder: (context) {
         return _ClosetItemEditorSheet(
           item: item,
@@ -582,9 +588,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
         if (!mounted) return;
         await _loadClosetCount();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Piece deleted.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Piece deleted.')));
         return;
       }
 
@@ -599,24 +605,24 @@ class _ClosetScreenState extends State<ClosetScreen> {
       if (!mounted) return;
       await _loadClosetCount();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Piece updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Piece updated.')));
     } on AuthException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } on PostgrestException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Something went wrong: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Something went wrong: $error')));
     }
   }
 
@@ -646,8 +652,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFD45F5D),
-                foregroundColor: Colors.white,
+                backgroundColor: context.nightSurface(const Color(0xFFD45F5D)),
+                foregroundColor: context.nightInk(Colors.white),
               ),
               child: const Text('Delete'),
             ),
@@ -661,7 +667,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
 
   Future<void> _removeDeletedItemFromSavedLooks(String itemId) async {
     final prefs = await SharedPreferences.getInstance();
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? 'guest';
+    final currentUserId =
+        Supabase.instance.client.auth.currentUser?.id ?? 'guest';
     final savedLooksKey = '$_savedOutfitsKeyPrefix:$currentUserId';
     final plannedLooksKey = '$_plannedOutfitsKeyPrefix:$currentUserId';
 
@@ -707,8 +714,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
           final plannedOutfitId = value is String
               ? value
               : ((value as Map<String, dynamic>)['outfit_id'] ??
-                      value['outfitId'])
-                  ?.toString();
+                        value['outfitId'])
+                    ?.toString();
           return plannedOutfitId == null ||
               !removedOutfitIds.contains(plannedOutfitId);
         }),
@@ -732,7 +739,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
     try {
       final captured = await _picker.pickImage(
         source: source,
-        imageQuality: 90,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 82,
       );
 
       if (!mounted || captured == null) return;
@@ -786,10 +795,10 @@ class _ClosetScreenState extends State<ClosetScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return const PopScope(
+        return PopScope(
           canPop: false,
           child: Dialog(
-            backgroundColor: Colors.white,
+            backgroundColor: context.nightSurface(Colors.white),
             child: Padding(
               padding: EdgeInsets.all(22),
               child: Column(
@@ -799,7 +808,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                     width: 32,
                     height: 32,
                     child: CircularProgressIndicator(
-                      color: Color(0xFF0A7A76),
+                      color: context.nightInk(Color(0xFF0A7A76)),
                       strokeWidth: 3,
                     ),
                   ),
@@ -809,7 +818,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF203032),
+                      color: context.nightInk(Color(0xFF203032)),
                     ),
                   ),
                   SizedBox(height: 8),
@@ -817,7 +826,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                     'We are generating AI tags like type, color, and material before the preview opens.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFF6A7C7E),
+                      color: context.nightInk(Color(0xFF6A7C7E)),
                       height: 1.45,
                     ),
                   ),
@@ -835,25 +844,21 @@ class _ClosetScreenState extends State<ClosetScreen> {
 
     if (tab == AppTab.home) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const HomeScreen(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
       );
       return;
     }
 
     if (tab == AppTab.outfits) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const OutfitsScreen(),
-        ),
+        MaterialPageRoute<void>(builder: (_) => const OutfitsScreen()),
       );
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${tab.name} is coming soon.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${tab.name} is coming soon.')));
   }
 
   @override
@@ -883,8 +888,12 @@ class _ClosetScreenState extends State<ClosetScreen> {
                             SettingsScreen.openFromMenu(context);
                           },
                           style: IconButton.styleFrom(
-                            backgroundColor: const Color(0xFFE8F5F2),
-                            foregroundColor: const Color(0xFF0A7A76),
+                            backgroundColor: context.nightSurface(
+                              const Color(0xFFE8F5F2),
+                            ),
+                            foregroundColor: context.nightInk(
+                              const Color(0xFF0A7A76),
+                            ),
                           ),
                           icon: const Icon(Icons.menu_rounded),
                         ),
@@ -893,7 +902,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
                           'STYLEX',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: const Color(0xFF2C4B4D),
+                            color: context.nightInk(
+                              const Color(0xFF2C4B4D),
+                            ),
                             letterSpacing: 0.6,
                           ),
                         ),
@@ -901,16 +912,19 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         Container(
                           width: 28,
                           height: 28,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             gradient: LinearGradient(
-                              colors: [Color(0xFFE7C79F), Color(0xFFD9A77D)],
+                              colors: context.nightSurfaces([
+                                Color(0xFFE7C79F),
+                                Color(0xFFD9A77D),
+                              ]),
                             ),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.person_rounded,
                             size: 16,
-                            color: Colors.white,
+                            color: context.nightInk(Colors.white),
                           ),
                         ),
                       ],
@@ -919,7 +933,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                     Text(
                       'CURATION',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: const Color(0xFF6CA4A0),
+                        color: context.nightInk(const Color(0xFF6CA4A0)),
                         letterSpacing: 1.5,
                         fontWeight: FontWeight.w800,
                       ),
@@ -932,7 +946,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         fontWeight: FontWeight.w800,
                         height: 0.95,
                         letterSpacing: -1.6,
-                        color: theme.colorScheme.onSurface,
+                        color: context.nightInk(
+                          theme.colorScheme.onSurface,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -950,22 +966,30 @@ class _ClosetScreenState extends State<ClosetScreen> {
                               setState(() => _selectedFilter = filter);
                             },
                             labelStyle: TextStyle(
-                              color: selected
-                                  ? Colors.white
-                                  : const Color(0xFF7A8D8F),
+                              color: context.nightInk(
+                                selected
+                                    ? Colors.white
+                                    : const Color(0xFF7A8D8F),
+                              ),
                               fontWeight: FontWeight.w700,
                               fontSize: 11,
                             ),
                             showCheckmark: false,
                             padding: const EdgeInsets.symmetric(horizontal: 8),
-                            selectedColor: const Color(0xFF0A7A76),
-                            backgroundColor: const Color(0xFFF0F6F5),
+                            selectedColor: context.nightSurface(
+                              const Color(0xFF0A7A76),
+                            ),
+                            backgroundColor: context.nightSurface(
+                              const Color(0xFFF0F6F5),
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                               side: BorderSide(
-                                color: selected
-                                    ? const Color(0xFF0A7A76)
-                                    : const Color(0xFFE3EFEC),
+                                color: context.nightOutline(
+                                  selected
+                                      ? const Color(0xFF0A7A76)
+                                      : const Color(0xFFE3EFEC),
+                                ),
                               ),
                             ),
                           );
@@ -976,11 +1000,11 @@ class _ClosetScreenState extends State<ClosetScreen> {
                     ),
                     const SizedBox(height: 18),
                     if (_isLoadingCloset)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.symmetric(vertical: 40),
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF0A7A76),
+                            color: context.nightInk(Color(0xFF0A7A76)),
                           ),
                         ),
                       )
@@ -992,11 +1016,11 @@ class _ClosetScreenState extends State<ClosetScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.76,
-                          ),
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 0.76,
+                              ),
                           itemBuilder: (context, index) {
                             final item = filteredItems[index];
                             return _ClosetGridCard(
@@ -1017,7 +1041,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFCAEDFF),
+                          color: context.nightSurface(const Color(0xFFCAEDFF)),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Column(
@@ -1028,15 +1052,18 @@ class _ClosetScreenState extends State<ClosetScreen> {
                                 Container(
                                   width: 24,
                                   height: 24,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF0A7A76),
-                                    borderRadius:
-                                        BorderRadius.all(Radius.circular(8)),
+                                  decoration: BoxDecoration(
+                                    color: context.nightSurface(
+                                      Color(0xFF0A7A76),
+                                    ),
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(8),
+                                    ),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.auto_awesome_rounded,
                                     size: 14,
-                                    color: Colors.white,
+                                    color: context.nightInk(Colors.white),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1044,7 +1071,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
                                   child: Text(
                                     'STYLE AI SUGGESTION',
                                     style: theme.textTheme.labelSmall?.copyWith(
-                                      color: const Color(0xFF1D5F69),
+                                      color: context.nightInk(
+                                        const Color(0xFF1D5F69),
+                                      ),
                                       fontWeight: FontWeight.w800,
                                       letterSpacing: 1.1,
                                     ),
@@ -1056,7 +1085,9 @@ class _ClosetScreenState extends State<ClosetScreen> {
                             Text(
                               _styleLookbookTitle,
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: const Color(0xFF203032),
+                                color: context.nightInk(
+                                  const Color(0xFF203032),
+                                ),
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -1064,17 +1095,22 @@ class _ClosetScreenState extends State<ClosetScreen> {
                             Text(
                               _styleLookbookDescription,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFF3F6A73),
+                                color: context.nightInk(
+                                  const Color(0xFF3F6A73),
+                                ),
                                 height: 1.45,
                               ),
                             ),
                             const SizedBox(height: 12),
                             FilledButton(
-                              onPressed:
-                                  _isGeneratingLookbook ? null : _generateStyleLookbook,
+                              onPressed: _isGeneratingLookbook
+                                  ? null
+                                  : _generateStyleLookbook,
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF203032),
-                                foregroundColor: Colors.white,
+                                backgroundColor: context.nightSurface(
+                                  const Color(0xFF203032),
+                                ),
+                                foregroundColor: context.nightInk(Colors.white),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 12,
@@ -1084,12 +1120,14 @@ class _ClosetScreenState extends State<ClosetScreen> {
                                 ),
                               ),
                               child: _isGeneratingLookbook
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Colors.white,
+                                        color: context.nightInk(
+                                          Colors.white,
+                                        ),
                                       ),
                                     )
                                   : const Text('Generate Lookbook'),
@@ -1152,7 +1190,8 @@ class _ClosetScreenState extends State<ClosetScreen> {
         return normalizedCategory == 'top' || normalizedCategory == 'tops';
       }
       if (normalizedFilter == 'bottoms') {
-        return normalizedCategory == 'bottom' || normalizedCategory == 'bottoms';
+        return normalizedCategory == 'bottom' ||
+            normalizedCategory == 'bottoms';
       }
       if (normalizedFilter == 'shoes') {
         return normalizedCategory == 'shoe' || normalizedCategory == 'shoes';
@@ -1179,23 +1218,25 @@ class _EmptyClosetState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE1EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1EEEB)),
+        ),
       ),
       child: Column(
         children: [
           Container(
             width: 72,
             height: 72,
-            decoration: const BoxDecoration(
-              color: Color(0xFFDFF4EF),
+            decoration: BoxDecoration(
+              color: context.nightSurface(Color(0xFFDFF4EF)),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.checkroom_outlined,
               size: 34,
-              color: Color(0xFF0A7A76),
+              color: context.nightInk(Color(0xFF0A7A76)),
             ),
           ),
           const SizedBox(height: 18),
@@ -1204,7 +1245,7 @@ class _EmptyClosetState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF203032),
+              color: context.nightInk(const Color(0xFF203032)),
             ),
           ),
           const SizedBox(height: 8),
@@ -1212,7 +1253,7 @@ class _EmptyClosetState extends StatelessWidget {
             'Once you capture a piece, your closet and style suggestions will start showing up here.',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF6A7C7E),
+              color: context.nightInk(const Color(0xFF6A7C7E)),
               height: 1.45,
             ),
           ),
@@ -1220,8 +1261,8 @@ class _EmptyClosetState extends StatelessWidget {
           FilledButton.icon(
             onPressed: onAddPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF0A7A76),
-              foregroundColor: Colors.white,
+              backgroundColor: context.nightSurface(const Color(0xFF0A7A76)),
+              foregroundColor: context.nightInk(Colors.white),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(999),
@@ -1257,20 +1298,25 @@ class _SourceOptionTile extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F8F7),
+          color: context.nightSurface(const Color(0xFFF2F8F7)),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE1EEEB)),
+          border: Border.all(
+            color: context.nightSurface(const Color(0xFFE1EEEB)),
+          ),
         ),
         child: Row(
           children: [
             Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
-                color: Color(0xFFDFF4EF),
+              decoration: BoxDecoration(
+                color: context.nightSurface(Color(0xFFDFF4EF)),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: const Color(0xFF0A7A76)),
+              child: Icon(
+                icon,
+                color: context.nightInk(const Color(0xFF0A7A76)),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1279,25 +1325,25 @@ class _SourceOptionTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF203032),
+                      color: context.nightInk(Color(0xFF203032)),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF6A7C7E),
+                    style: TextStyle(
+                      color: context.nightInk(Color(0xFF6A7C7E)),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,
-              color: Color(0xFF87A1A3),
+              color: context.nightInk(Color(0xFF87A1A3)),
             ),
           ],
         ),
@@ -1322,7 +1368,7 @@ class _ClosetGridCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F8F7),
+          color: context.nightSurface(const Color(0xFFF3F8F7)),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
@@ -1345,15 +1391,15 @@ class _ClosetGridCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF203032),
+                      color: context.nightInk(const Color(0xFF203032)),
                     ),
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Icon(
+                Icon(
                   Icons.edit_outlined,
                   size: 14,
-                  color: Color(0xFF0A7A76),
+                  color: context.nightInk(Color(0xFF0A7A76)),
                 ),
               ],
             ),
@@ -1361,7 +1407,7 @@ class _ClosetGridCard extends StatelessWidget {
             Text(
               item.subtitle,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF91A2A4),
+                color: context.nightInk(const Color(0xFF91A2A4)),
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.0,
               ),
@@ -1397,9 +1443,11 @@ class _FilteredClosetEmptyState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2F8F7),
+        color: context.nightSurface(const Color(0xFFF2F8F7)),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2EEEB)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE2EEEB)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1407,7 +1455,7 @@ class _FilteredClosetEmptyState extends StatelessWidget {
           Text(
             selectedFilter,
             style: theme.textTheme.titleMedium?.copyWith(
-              color: const Color(0xFF203032),
+              color: context.nightInk(const Color(0xFF203032)),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1415,7 +1463,7 @@ class _FilteredClosetEmptyState extends StatelessWidget {
           Text(
             description,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF6F8082),
+              color: context.nightInk(const Color(0xFF6F8082)),
               height: 1.45,
             ),
           ),
@@ -1423,8 +1471,8 @@ class _FilteredClosetEmptyState extends StatelessWidget {
           OutlinedButton(
             onPressed: onReset,
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0A7A76),
-              side: const BorderSide(color: Color(0xFFBFD8D3)),
+              foregroundColor: context.nightInk(const Color(0xFF0A7A76)),
+              side: BorderSide(color: context.nightOutline(Color(0xFFBFD8D3))),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(999),
@@ -1453,61 +1501,76 @@ class _ClosetImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
-      child: SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFFE9F3F1), Color(0xFFCFE2DE)],
-                    ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: Color(0xFF6A7C7E),
-                    ),
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFFE9F3F1), Color(0xFFCFE2DE)],
-                    ),
-                  ),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF0A7A76),
-                    ),
-                  ),
-                );
-              },
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: tall ? 0.08 : 0.18),
-                  ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => SizedBox.expand(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              NightImage(
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  cacheWidth:
+                      (constraints.maxWidth *
+                              MediaQuery.devicePixelRatioOf(context))
+                          .ceil()
+                          .clamp(1, 1600),
+                  errorBuilder: (context, error, stackTrace) {
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: context.nightSurfaces([
+                            Color(0xFFE9F3F1),
+                            Color(0xFFCFE2DE),
+                          ]),
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          color: context.nightInk(Color(0xFF6A7C7E)),
+                        ),
+                      ),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: context.nightSurfaces([
+                            Color(0xFFE9F3F1),
+                            Color(0xFFCFE2DE),
+                          ]),
+                        ),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: context.nightInk(Color(0xFF0A7A76)),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
-          ],
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: context.nightSurfaces([
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: tall ? 0.08 : 0.18),
+                    ]),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1526,9 +1589,11 @@ class _LookbookSuggestionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F8F7),
+        color: context.nightSurface(const Color(0xFFF4F8F7)),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE1ECE8)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE1ECE8)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1536,9 +1601,9 @@ class _LookbookSuggestionCard extends StatelessWidget {
           Text(
             entry.name,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF203032),
-                ),
+              fontWeight: FontWeight.w800,
+              color: context.nightInk(const Color(0xFF203032)),
+            ),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -1551,22 +1616,24 @@ class _LookbookSuggestionCard extends StatelessWidget {
                     padding: EdgeInsets.only(right: isLast ? 0 : 8),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Image.network(
-                        item.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0xFFE3EEEA),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                Icons.checkroom_outlined,
-                                color: Color(0xFF6A7C7E),
+                      child: NightImage(
+                        child: Image.network(
+                          item.imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: context.nightSurface(Color(0xFFE3EEEA)),
                               ),
-                            ),
-                          );
-                        },
+                              child: Center(
+                                child: Icon(
+                                  Icons.checkroom_outlined,
+                                  color: context.nightInk(Color(0xFF6A7C7E)),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -1602,14 +1669,16 @@ class _LookbookPieceChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.nightSurface(Colors.white),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE0EAE6)),
+        border: Border.all(
+          color: context.nightSurface(const Color(0xFFE0EAE6)),
+        ),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF506366),
+        style: TextStyle(
+          color: context.nightInk(Color(0xFF506366)),
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -1619,10 +1688,7 @@ class _LookbookPieceChip extends StatelessWidget {
 }
 
 class _GeneratedLookbookEntry {
-  const _GeneratedLookbookEntry({
-    required this.name,
-    required this.items,
-  });
+  const _GeneratedLookbookEntry({required this.name, required this.items});
 
   final String name;
   final List<ClosetItemPreview> items;
@@ -1638,9 +1704,9 @@ class _EditorLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF203032),
-          ),
+        fontWeight: FontWeight.w800,
+        color: context.nightInk(const Color(0xFF203032)),
+      ),
     );
   }
 }
@@ -1672,7 +1738,9 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
     _nameController = TextEditingController(text: widget.item.title);
     _colorController = TextEditingController(text: widget.item.primaryColor);
     _materialController = TextEditingController(
-      text: widget.item.material.trim().isEmpty ? 'Unknown' : widget.item.material,
+      text: widget.item.material.trim().isEmpty
+          ? 'Unknown'
+          : widget.item.material,
     );
     _selectedType = widget.initialType;
   }
@@ -1694,7 +1762,9 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
     final updatedName = _nameController.text.trim();
     final updatedColor = _colorController.text.trim();
     final updatedMaterial = _materialController.text.trim();
-    if (updatedName.isEmpty || updatedColor.isEmpty || updatedMaterial.isEmpty) {
+    if (updatedName.isEmpty ||
+        updatedColor.isEmpty ||
+        updatedMaterial.isEmpty) {
       return;
     }
 
@@ -1717,10 +1787,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
       0.0,
       media.size.height - keyboardInset - media.padding.top - 28,
     );
-    final maxHeight = math.min(
-      media.size.height * 0.86,
-      availableHeight,
-    );
+    final maxHeight = math.min(media.size.height * 0.86, availableHeight);
 
     return SafeArea(
       top: false,
@@ -1733,7 +1800,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
         ),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.nightSurface(Colors.white),
             borderRadius: BorderRadius.circular(28),
           ),
           child: ConstrainedBox(
@@ -1750,25 +1817,25 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                       width: 42,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD8E5E1),
+                        color: context.nightSurface(const Color(0xFFD8E5E1)),
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Edit Piece',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF203032),
+                      color: context.nightInk(Color(0xFF203032)),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Update this item or remove it from your closet.',
                     style: TextStyle(
-                      color: Color(0xFF6A7C7E),
+                      color: context.nightInk(Color(0xFF6A7C7E)),
                       height: 1.45,
                     ),
                   ),
@@ -1776,7 +1843,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F8F7),
+                      color: context.nightSurface(const Color(0xFFF3F8F7)),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Row(
@@ -1800,8 +1867,8 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                                     : _nameController.text.trim(),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF203032),
+                                style: TextStyle(
+                                  color: context.nightInk(Color(0xFF203032)),
                                   fontWeight: FontWeight.w800,
                                   fontSize: 15,
                                 ),
@@ -1811,8 +1878,8 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                                 '${_selectedType.toUpperCase()} • ${_colorController.text.trim().toUpperCase()}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF8B9C9F),
+                                style: TextStyle(
+                                  color: context.nightInk(Color(0xFF8B9C9F)),
                                   fontWeight: FontWeight.w800,
                                   fontSize: 10,
                                   letterSpacing: 0.8,
@@ -1834,7 +1901,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                     decoration: InputDecoration(
                       hintText: 'Classic Tee',
                       filled: true,
-                      fillColor: const Color(0xFFF4F8F7),
+                      fillColor: context.nightSurface(const Color(0xFFF4F8F7)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide.none,
@@ -1857,18 +1924,24 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                           setState(() => _selectedType = option);
                         },
                         labelStyle: TextStyle(
-                          color: selected
-                              ? Colors.white
-                              : const Color(0xFF6F8082),
+                          color: context.nightInk(
+                            selected ? Colors.white : const Color(0xFF6F8082),
+                          ),
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
                         ),
-                        backgroundColor: const Color(0xFFF4F8F7),
-                        selectedColor: const Color(0xFF0A7A76),
+                        backgroundColor: context.nightSurface(
+                          const Color(0xFFF4F8F7),
+                        ),
+                        selectedColor: context.nightSurface(
+                          const Color(0xFF0A7A76),
+                        ),
                         side: BorderSide(
-                          color: selected
-                              ? const Color(0xFF0A7A76)
-                              : const Color(0xFFDCE7E4),
+                          color: context.nightOutline(
+                            selected
+                                ? const Color(0xFF0A7A76)
+                                : const Color(0xFFDCE7E4),
+                          ),
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1896,7 +1969,9 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                               decoration: InputDecoration(
                                 hintText: 'Blue',
                                 filled: true,
-                                fillColor: const Color(0xFFF4F8F7),
+                                fillColor: context.nightSurface(
+                                  const Color(0xFFF4F8F7),
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: BorderSide.none,
@@ -1919,7 +1994,9 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                               decoration: InputDecoration(
                                 hintText: 'Cotton Blend',
                                 filled: true,
-                                fillColor: const Color(0xFFF4F8F7),
+                                fillColor: context.nightSurface(
+                                  const Color(0xFFF4F8F7),
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: BorderSide.none,
@@ -1937,19 +2014,18 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                     child: OutlinedButton.icon(
                       onPressed: _closeWithDelete,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFD45F5D),
-                        side: const BorderSide(
-                          color: Color(0xFFF0CDCB),
+                        foregroundColor: context.nightInk(
+                          const Color(0xFFD45F5D),
+                        ),
+                        side: BorderSide(
+                          color: context.nightOutline(Color(0xFFF0CDCB)),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
                       label: const Text('Delete Piece'),
                     ),
                   ),
@@ -1959,8 +2035,10 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                     child: FilledButton(
                       onPressed: _closeWithSave,
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF0A7A76),
-                        foregroundColor: Colors.white,
+                        backgroundColor: context.nightSurface(
+                          const Color(0xFF0A7A76),
+                        ),
+                        foregroundColor: context.nightInk(Colors.white),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(999),
@@ -1988,11 +2066,11 @@ class _ClosetItemEditResult {
   }) : deleteRequested = false;
 
   const _ClosetItemEditResult.delete()
-      : name = null,
-        category = null,
-        primaryColor = null,
-        material = null,
-        deleteRequested = true;
+    : name = null,
+      category = null,
+      primaryColor = null,
+      material = null,
+      deleteRequested = true;
 
   final String? name;
   final String? category;
