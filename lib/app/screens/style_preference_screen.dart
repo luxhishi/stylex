@@ -111,9 +111,7 @@ class _StylePreferenceScreenState extends State<StylePreferenceScreen> {
                           Text(
                             'Tell us what moves you. We will curate your digital atelier based on your unique aesthetic.',
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: context.nightInk(
-                                const Color(0xFF6D7A7B),
-                              ),
+                              color: context.nightInk(const Color(0xFF6D7A7B)),
                               height: 1.5,
                             ),
                           ),

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../widgets/app_appearance.dart';
 
 import '../models/closet_analysis_result.dart';
+import '../models/clothing_style_tags.dart';
+import '../widgets/clothing_style_tag_picker.dart';
 import '../view_models/add_closet_item_view_model.dart';
 import '../widgets/app_bottom_nav.dart';
 import '../widgets/onboarding_shell.dart';
@@ -33,11 +35,13 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
   late final AddClosetItemViewModel _viewModel;
   late final TextEditingController _nameController;
   late String _selectedGarmentType;
+  late List<String> _styleTags;
 
   @override
   void initState() {
     super.initState();
     _viewModel = AddClosetItemViewModel();
+    _styleTags = ClothingStyleTags.normalize(widget.analysis.styleTags);
     _nameController = TextEditingController(text: widget.analysis.garmentType);
     _selectedGarmentType = _typeOptions.contains(widget.analysis.garmentType)
         ? widget.analysis.garmentType
@@ -82,6 +86,7 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
     return widget.analysis.copyWith(
       category: _selectedGarmentType,
       garmentType: _selectedGarmentType,
+      styleTags: _styleTags,
       tags: _updatedTagsForType(widget.analysis.tags, _selectedGarmentType),
     );
   }
@@ -285,7 +290,9 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                         ),
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
-                                              context.nightInk(const Color(0xFF6AE9DE)),
+                                              context.nightInk(
+                                                const Color(0xFF6AE9DE),
+                                              ),
                                             ),
                                       ),
                                     ),
@@ -383,7 +390,17 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                   color: context.nightInk(Color(0xFF0A7A76)),
                                 ),
                                 borderRadius: BorderRadius.circular(18),
-                                dropdownColor: context.nightSurface(Colors.white),
+                                dropdownColor: context.nightSurface(
+                                  Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              ClothingStyleTagPicker(
+                                selected: _styleTags,
+                                onChanged: _viewModel.isSaving
+                                    ? null
+                                    : (tags) =>
+                                          setState(() => _styleTags = tags),
                               ),
                               const SizedBox(height: 18),
                               AnimatedContainer(
@@ -553,9 +570,7 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: context.nightInk(
-                                          Colors.white,
-                                        ),
+                                        color: context.nightInk(Colors.white),
                                       ),
                                     )
                                   : const Icon(

@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/closet_item_preview.dart';
+import '../models/clothing_style_tags.dart';
+import '../widgets/clothing_style_tag_picker.dart';
 import '../services/closet_analysis_service.dart';
 import '../services/closet_service.dart';
 import '../widgets/app_bottom_nav.dart';
@@ -600,6 +602,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
         category: result.category!,
         primaryColor: result.primaryColor!,
         material: result.material!,
+        styleTags: result.styleTags,
       );
       HomeScreen.clearSessionCache();
       if (!mounted) return;
@@ -902,9 +905,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                           'STYLEX',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            color: context.nightInk(
-                              const Color(0xFF2C4B4D),
-                            ),
+                            color: context.nightInk(const Color(0xFF2C4B4D)),
                             letterSpacing: 0.6,
                           ),
                         ),
@@ -946,9 +947,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                         fontWeight: FontWeight.w800,
                         height: 0.95,
                         letterSpacing: -1.6,
-                        color: context.nightInk(
-                          theme.colorScheme.onSurface,
-                        ),
+                        color: context.nightInk(theme.colorScheme.onSurface),
                       ),
                     ),
                     const SizedBox(height: 18),
@@ -1019,7 +1018,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                                 crossAxisCount: 2,
                                 crossAxisSpacing: 12,
                                 mainAxisSpacing: 12,
-                                childAspectRatio: 0.76,
+                                childAspectRatio: 0.68,
                               ),
                           itemBuilder: (context, index) {
                             final item = filteredItems[index];
@@ -1125,9 +1124,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
                                       height: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: context.nightInk(
-                                          Colors.white,
-                                        ),
+                                        color: context.nightInk(Colors.white),
                                       ),
                                     )
                                   : const Text('Generate Lookbook'),
@@ -1406,12 +1403,27 @@ class _ClosetGridCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               item.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: context.nightInk(const Color(0xFF91A2A4)),
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.0,
               ),
             ),
+            if (item.styleTags.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Text(
+                item.styleTags.join(' | '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: context.nightInk(const Color(0xFF527C77)),
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1731,6 +1743,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
   late final TextEditingController _colorController;
   late final TextEditingController _materialController;
   late String _selectedType;
+  late List<String> _styleTags;
 
   @override
   void initState() {
@@ -1743,6 +1756,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
           : widget.item.material,
     );
     _selectedType = widget.initialType;
+    _styleTags = ClothingStyleTags.normalize(widget.item.styleTags);
   }
 
   @override
@@ -1775,6 +1789,7 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
         category: _selectedType,
         primaryColor: updatedColor,
         material: updatedMaterial,
+        styleTags: _styleTags,
       ),
     );
   }
@@ -1909,6 +1924,11 @@ class _ClosetItemEditorSheetState extends State<_ClosetItemEditorSheet> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  ClothingStyleTagPicker(
+                    selected: _styleTags,
+                    onChanged: (tags) => setState(() => _styleTags = tags),
+                  ),
+                  const SizedBox(height: 16),
                   const _EditorLabel(label: 'Clothing Type'),
                   const SizedBox(height: 8),
                   Wrap(
@@ -2063,6 +2083,7 @@ class _ClosetItemEditResult {
     required this.category,
     required this.primaryColor,
     required this.material,
+    required this.styleTags,
   }) : deleteRequested = false;
 
   const _ClosetItemEditResult.delete()
@@ -2070,11 +2091,13 @@ class _ClosetItemEditResult {
       category = null,
       primaryColor = null,
       material = null,
+      styleTags = const [],
       deleteRequested = true;
 
   final String? name;
   final String? category;
   final String? primaryColor;
   final String? material;
+  final List<String> styleTags;
   final bool deleteRequested;
 }

@@ -148,9 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Settings',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: context.nightInk(
-                          theme.colorScheme.onSurface,
-                        ),
+                        color: context.nightInk(theme.colorScheme.onSurface),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -302,9 +300,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   height: 18,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: context.nightInk(
-                                      Color(0xFFD45F5D),
-                                    ),
+                                    color: context.nightInk(Color(0xFFD45F5D)),
                                   ),
                                 )
                               : const Text(

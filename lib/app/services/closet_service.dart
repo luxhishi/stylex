@@ -4,10 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/closet_analysis_result.dart';
 import '../models/closet_item_preview.dart';
+import '../models/clothing_style_tags.dart';
 
 class ClosetService {
   ClosetService({SupabaseClient? supabaseClient})
-      : _supabase = supabaseClient ?? Supabase.instance.client;
+    : _supabase = supabaseClient ?? Supabase.instance.client;
 
   static const storageBucket = 'closet-items';
 
@@ -85,25 +86,34 @@ class ClosetService {
       previews.add(
         ClosetItemPreview(
           id: id,
+          styleTags: ClothingStyleTags.normalize(
+            (analysis?['style_tags'] as List<dynamic>? ?? const []).map(
+              (tag) => tag.toString(),
+            ),
+          ),
           imageUrl: resolvedUrl,
           source: item['source'] as String? ?? 'camera_upload',
-          category: (analysis?['category'] as String?)?.trim().isNotEmpty == true
+          category:
+              (analysis?['category'] as String?)?.trim().isNotEmpty == true
               ? (analysis!['category'] as String).trim()
-              : _categoryForSource(item['source'] as String? ?? 'camera_upload'),
+              : _categoryForSource(
+                  item['source'] as String? ?? 'camera_upload',
+                ),
           primaryColor:
               (analysis?['primary_color'] as String?)?.trim().isNotEmpty == true
-                  ? (analysis!['primary_color'] as String).trim()
-                  : 'Neutral',
+              ? (analysis!['primary_color'] as String).trim()
+              : 'Neutral',
           material:
               (analysis?['material'] as String?)?.trim().isNotEmpty == true
-                  ? (analysis!['material'] as String).trim()
-                  : '',
-          title: _resolvedCustomName(item, analysis) ??
+              ? (analysis!['material'] as String).trim()
+              : '',
+          title:
+              _resolvedCustomName(item, analysis) ??
               ((analysis?['garment_type'] as String?)?.trim().isNotEmpty == true
                   ? (analysis!['garment_type'] as String).trim()
                   : 'Closet Piece'),
-          subtitle: (analysis?['primary_color'] as String?)?.trim().isNotEmpty ==
-                  true
+          subtitle:
+              (analysis?['primary_color'] as String?)?.trim().isNotEmpty == true
               ? (analysis!['primary_color'] as String).trim().toUpperCase()
               : _labelForSource(item['source'] as String? ?? 'camera_upload'),
           createdAt: DateTime.tryParse(item['created_at'] as String? ?? ''),
@@ -148,28 +158,34 @@ class ClosetService {
     if (candidates.isEmpty) return const [];
 
     final normalizedStyle = _normalizeStyleSlug(styleSlug);
-    final ranked = candidates
-        .map(
-          (candidate) => _OutfitCandidate(
-            items: candidate.items,
-            score: candidate.score + _styleAffinityScore(candidate.items, normalizedStyle),
-          ),
-        )
-        .toList()
-      ..sort((a, b) {
-        final byScore = b.score.compareTo(a.score);
-        if (byScore != 0) return byScore;
-        return a.signature.compareTo(b.signature);
-      });
+    final ranked =
+        candidates
+            .map(
+              (candidate) => _OutfitCandidate(
+                items: candidate.items,
+                score:
+                    candidate.score +
+                    _styleAffinityScore(candidate.items, normalizedStyle),
+              ),
+            )
+            .toList()
+          ..sort((a, b) {
+            final byScore = b.score.compareTo(a.score);
+            if (byScore != 0) return byScore;
+            return a.signature.compareTo(b.signature);
+          });
 
     final selected = <_OutfitCandidate>[];
 
     for (final candidate in ranked) {
-      if (selected.any((existing) => existing.signature == candidate.signature)) {
+      if (selected.any(
+        (existing) => existing.signature == candidate.signature,
+      )) {
         continue;
       }
       final isDiverseEnough = selected.every(
-        (existing) => _sharedItemCount(existing.items, candidate.items) <
+        (existing) =>
+            _sharedItemCount(existing.items, candidate.items) <
             candidate.items.length,
       );
       if (isDiverseEnough) {
@@ -180,7 +196,9 @@ class ClosetService {
 
     if (selected.length < count) {
       for (final candidate in ranked) {
-        if (selected.any((existing) => existing.signature == candidate.signature)) {
+        if (selected.any(
+          (existing) => existing.signature == candidate.signature,
+        )) {
           continue;
         }
         selected.add(candidate);
@@ -213,35 +231,46 @@ class ClosetService {
         for (final shoe in shoes) {
           final baseItems = [top, bottom, shoe];
           final baseScore =
-              _scorePair(top, bottom) + _scorePair(top, shoe) + _scorePair(bottom, shoe);
+              _scorePair(top, bottom) +
+              _scorePair(top, shoe) +
+              _scorePair(bottom, shoe);
 
           if (!includeOuterwear || outerwear.isEmpty) {
             candidates.add(
-              _OutfitCandidate(
-                items: baseItems,
-                score: baseScore,
-              ),
+              _OutfitCandidate(items: baseItems, score: baseScore),
             );
             continue;
           }
 
           for (final layer in outerwear) {
-            final score = baseScore +
+            final score =
+                baseScore +
                 _scorePair(top, layer) +
                 _scorePair(bottom, layer) +
                 _scorePair(shoe, layer);
             candidates.add(
-              _OutfitCandidate(
-                items: [top, bottom, shoe, layer],
-                score: score,
-              ),
+              _OutfitCandidate(items: [top, bottom, shoe, layer], score: score),
             );
           }
         }
       }
     }
 
-    return candidates;
+    final compatible = candidates.where((candidate) {
+      for (var i = 0; i < candidate.items.length; i++) {
+        for (var j = i + 1; j < candidate.items.length; j++) {
+          if (ClothingStyleTags.compatibility(
+                candidate.items[i].styleTags,
+                candidate.items[j].styleTags,
+              ) <
+              -5) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }).toList();
+    return compatible.isNotEmpty ? compatible : candidates;
   }
 
   List<ClosetItemPreview> _itemsForCategory(
@@ -255,6 +284,11 @@ class ClosetService {
   }
 
   double _scorePair(ClosetItemPreview first, ClosetItemPreview second) {
+    return _colorPairScore(first, second) +
+        ClothingStyleTags.compatibility(first.styleTags, second.styleTags);
+  }
+
+  double _colorPairScore(ClosetItemPreview first, ClosetItemPreview second) {
     final a = first.primaryColor.trim().toLowerCase();
     final b = second.primaryColor.trim().toLowerCase();
     final neutralColors = {
@@ -303,6 +337,12 @@ class ClosetService {
       final title = item.title.trim().toLowerCase();
       final category = item.category.trim().toLowerCase();
 
+      if (item.styleTags.any(
+        (tag) => tag.toLowerCase().replaceAll(' ', '-') == styleSlug,
+      )) {
+        score += 5;
+      }
+
       if (palette.contains(color)) {
         score += 2.3;
       }
@@ -338,43 +378,13 @@ class ClosetService {
   Set<String> _preferredColorsForStyle(String styleSlug) {
     switch (styleSlug) {
       case 'streetwear':
-        return {
-          'black',
-          'charcoal',
-          'gray',
-          'blue',
-          'green',
-          'white',
-        };
+        return {'black', 'charcoal', 'gray', 'blue', 'green', 'white'};
       case 'formal':
-        return {
-          'black',
-          'charcoal',
-          'gray',
-          'navy',
-          'white',
-          'blue',
-        };
+        return {'black', 'charcoal', 'gray', 'navy', 'white', 'blue'};
       case 'bohemian':
-        return {
-          'tan',
-          'beige',
-          'brown',
-          'green',
-          'pink',
-          'ivory',
-          'cream',
-        };
+        return {'tan', 'beige', 'brown', 'green', 'pink', 'ivory', 'cream'};
       case 'classic-vintage':
-        return {
-          'brown',
-          'tan',
-          'beige',
-          'green',
-          'navy',
-          'charcoal',
-          'ivory',
-        };
+        return {'brown', 'tan', 'beige', 'green', 'navy', 'charcoal', 'ivory'};
       case 'minimalist':
       default:
         return {
@@ -430,7 +440,9 @@ class ClosetService {
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      throw const AuthException('Please log in again before adding to your closet.');
+      throw const AuthException(
+        'Please log in again before adding to your closet.',
+      );
     }
 
     final extension = _extensionForPath(imagePath);
@@ -438,7 +450,9 @@ class ClosetService {
         '${DateTime.now().millisecondsSinceEpoch}_${user.id.substring(0, 8)}.$extension';
     final storagePath = '${user.id}/$fileName';
 
-    await _supabase.storage.from(storageBucket).upload(
+    await _supabase.storage
+        .from(storageBucket)
+        .upload(
           storagePath,
           File(imagePath),
           fileOptions: const FileOptions(upsert: false),
@@ -492,8 +506,10 @@ class ClosetService {
               'clothing_item_id': inserted['id'],
               'provider': analysis.provider,
               'model': analysis.model,
-              'raw_response':
-                  _analysisRawResponse(analysis, customName: customName),
+              'raw_response': _analysisRawResponse(
+                analysis,
+                customName: customName,
+              ),
               'confidence_score': analysis.confidence,
               'created_at': now,
             })
@@ -504,30 +520,40 @@ class ClosetService {
           {
             'analysis_id': savedAnalysis['id'],
             'field_name': 'category',
-            'predicted_slug': analysis.category.toLowerCase().replaceAll(' ', '-'),
+            'predicted_slug': analysis.category.toLowerCase().replaceAll(
+              ' ',
+              '-',
+            ),
             'predicted_label': analysis.category,
             'confidence_score': analysis.confidence,
           },
           {
             'analysis_id': savedAnalysis['id'],
             'field_name': 'type',
-            'predicted_slug':
-                analysis.garmentType.toLowerCase().replaceAll(' ', '-'),
+            'predicted_slug': analysis.garmentType.toLowerCase().replaceAll(
+              ' ',
+              '-',
+            ),
             'predicted_label': analysis.garmentType,
             'confidence_score': analysis.confidence,
           },
           {
             'analysis_id': savedAnalysis['id'],
             'field_name': 'primary_color',
-            'predicted_slug':
-                analysis.primaryColor.toLowerCase().replaceAll(' ', '-'),
+            'predicted_slug': analysis.primaryColor.toLowerCase().replaceAll(
+              ' ',
+              '-',
+            ),
             'predicted_label': analysis.primaryColor,
             'confidence_score': analysis.confidence,
           },
           {
             'analysis_id': savedAnalysis['id'],
             'field_name': 'material',
-            'predicted_slug': analysis.material.toLowerCase().replaceAll(' ', '-'),
+            'predicted_slug': analysis.material.toLowerCase().replaceAll(
+              ' ',
+              '-',
+            ),
             'predicted_label': analysis.material,
             'confidence_score': analysis.confidence,
           },
@@ -546,7 +572,9 @@ class ClosetService {
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      throw const AuthException('Please log in again before renaming your item.');
+      throw const AuthException(
+        'Please log in again before renaming your item.',
+      );
     }
 
     final normalizedName = newName.trim();
@@ -555,19 +583,14 @@ class ClosetService {
     try {
       await _supabase
           .from('clothing_items')
-          .update({
-            'custom_name': normalizedName,
-            'updated_at': now,
-          })
+          .update({'custom_name': normalizedName, 'updated_at': now})
           .eq('id', itemId)
           .eq('user_id', user.id);
     } on PostgrestException catch (error) {
       if (!_isMissingCustomNameColumn(error)) rethrow;
       await _supabase
           .from('clothing_items')
-          .update({
-            'updated_at': now,
-          })
+          .update({'updated_at': now})
           .eq('id', itemId)
           .eq('user_id', user.id);
     }
@@ -585,10 +608,13 @@ class ClosetService {
     required String category,
     required String primaryColor,
     required String material,
+    List<String>? styleTags,
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      throw const AuthException('Please log in again before editing your item.');
+      throw const AuthException(
+        'Please log in again before editing your item.',
+      );
     }
 
     final normalizedName = newName.trim();
@@ -601,10 +627,7 @@ class ClosetService {
     try {
       await _supabase
           .from('clothing_items')
-          .update({
-            'custom_name': normalizedName,
-            'updated_at': now,
-          })
+          .update({'custom_name': normalizedName, 'updated_at': now})
           .eq('id', itemId)
           .eq('user_id', user.id);
     } on PostgrestException catch (error) {
@@ -612,9 +635,7 @@ class ClosetService {
       customNamePersistedInColumn = false;
       await _supabase
           .from('clothing_items')
-          .update({
-            'updated_at': now,
-          })
+          .update({'updated_at': now})
           .eq('id', itemId)
           .eq('user_id', user.id);
     }
@@ -624,13 +645,11 @@ class ClosetService {
       garmentType: normalizedCategory,
       primaryColor: normalizedColor,
       material: normalizedMaterial,
-      tags: _updatedTagsForType(
-        const [],
-        normalizedCategory,
-      ),
+      tags: _updatedTagsForType(const [], normalizedCategory),
       confidence: 1,
       provider: 'manual-edit',
       model: 'manual',
+      styleTags: ClothingStyleTags.normalize(styleTags ?? const []),
     );
 
     try {
@@ -674,6 +693,12 @@ class ClosetService {
         garmentType: normalizedCategory,
         primaryColor: normalizedColor,
         material: normalizedMaterial,
+        styleTags: ClothingStyleTags.normalize(
+          styleTags ??
+              (existingRaw['style_tags'] as List<dynamic>? ?? const []).map(
+                (tag) => tag.toString(),
+              ),
+        ),
         tags: _updatedTagsForType(
           (existingRaw['tags'] as List<dynamic>? ?? const [])
               .map((tag) => tag.toString())
@@ -682,8 +707,8 @@ class ClosetService {
         ),
         confidence:
             (existingAnalysis['confidence_score'] as num?)?.toDouble() ?? 1,
-        provider: (existingAnalysis['provider'] as String?)?.trim().isNotEmpty ==
-                true
+        provider:
+            (existingAnalysis['provider'] as String?)?.trim().isNotEmpty == true
             ? (existingAnalysis['provider'] as String).trim()
             : updatedAnalysis.provider,
         model: (existingAnalysis['model'] as String?)?.trim().isNotEmpty == true
@@ -698,8 +723,9 @@ class ClosetService {
               ...existingRaw,
               ..._analysisRawResponse(
                 mergedAnalysis,
-                customName:
-                    customNamePersistedInColumn ? normalizedName : normalizedName,
+                customName: customNamePersistedInColumn
+                    ? normalizedName
+                    : normalizedName,
               ),
             },
           })
@@ -710,7 +736,8 @@ class ClosetService {
         analysis: mergedAnalysis,
       );
     } on PostgrestException {
-      // Keep manual edits working for the main clothing record even if optional AI tables are unavailable.
+      if (styleTags != null) rethrow;
+      // Older installations can still edit metadata without the analysis table.
     }
   }
 
@@ -733,9 +760,7 @@ class ClosetService {
           'clothing_item_id': itemId,
           'provider': 'manual-edit',
           'model': 'manual',
-          'raw_response': {
-            'custom_name': customName,
-          },
+          'raw_response': {'custom_name': customName},
           'confidence_score': 1,
           'created_at': now,
         });
@@ -748,10 +773,7 @@ class ClosetService {
       await _supabase
           .from('clothing_ai_analyses')
           .update({
-            'raw_response': {
-              ...existingRaw,
-              'custom_name': customName,
-            },
+            'raw_response': {...existingRaw, 'custom_name': customName},
           })
           .eq('id', existingAnalysis['id'] as String);
     } on PostgrestException {
@@ -790,7 +812,9 @@ class ClosetService {
   Future<void> deleteClosetItem({required String itemId}) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      throw const AuthException('Please log in again before deleting your item.');
+      throw const AuthException(
+        'Please log in again before deleting your item.',
+      );
     }
 
     String? storagePath;
@@ -869,30 +893,40 @@ class ClosetService {
         {
           'analysis_id': analysisId,
           'field_name': 'category',
-          'predicted_slug': analysis.category.toLowerCase().replaceAll(' ', '-'),
+          'predicted_slug': analysis.category.toLowerCase().replaceAll(
+            ' ',
+            '-',
+          ),
           'predicted_label': analysis.category,
           'confidence_score': analysis.confidence,
         },
         {
           'analysis_id': analysisId,
           'field_name': 'type',
-          'predicted_slug':
-              analysis.garmentType.toLowerCase().replaceAll(' ', '-'),
+          'predicted_slug': analysis.garmentType.toLowerCase().replaceAll(
+            ' ',
+            '-',
+          ),
           'predicted_label': analysis.garmentType,
           'confidence_score': analysis.confidence,
         },
         {
           'analysis_id': analysisId,
           'field_name': 'primary_color',
-          'predicted_slug':
-              analysis.primaryColor.toLowerCase().replaceAll(' ', '-'),
+          'predicted_slug': analysis.primaryColor.toLowerCase().replaceAll(
+            ' ',
+            '-',
+          ),
           'predicted_label': analysis.primaryColor,
           'confidence_score': analysis.confidence,
         },
         {
           'analysis_id': analysisId,
           'field_name': 'material',
-          'predicted_slug': analysis.material.toLowerCase().replaceAll(' ', '-'),
+          'predicted_slug': analysis.material.toLowerCase().replaceAll(
+            ' ',
+            '-',
+          ),
           'predicted_label': analysis.material,
           'confidence_score': analysis.confidence,
         },
@@ -909,14 +943,12 @@ class ClosetService {
     final filtered = tags.where((tag) {
       final normalized = tag.trim().toLowerCase();
       return !typeOptions.contains(normalized) &&
-          !typeOptions.map((option) => option.replaceAll(' ', '-')).contains(normalized);
+          !typeOptions
+              .map((option) => option.replaceAll(' ', '-'))
+              .contains(normalized);
     }).toList();
 
-    return [
-      typeTag,
-      if (slugTag != typeTag) slugTag,
-      ...filtered,
-    ];
+    return [typeTag, if (slugTag != typeTag) slugTag, ...filtered];
   }
 
   String _extensionForPath(String path) {
@@ -1023,10 +1055,7 @@ class ClosetService {
 }
 
 class _OutfitCandidate {
-  const _OutfitCandidate({
-    required this.items,
-    required this.score,
-  });
+  const _OutfitCandidate({required this.items, required this.score});
 
   final List<ClosetItemPreview> items;
   final double score;

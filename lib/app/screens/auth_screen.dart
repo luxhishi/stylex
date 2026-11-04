@@ -101,9 +101,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             style: theme.textTheme.displaySmall?.copyWith(
                               fontSize: 34,
                               fontWeight: FontWeight.w700,
-                              color: context.nightInk(
-                                const Color(0xFF0A7A76),
-                              ),
+                              color: context.nightInk(const Color(0xFF0A7A76)),
                               letterSpacing: -1.3,
                             ),
                           ),
@@ -112,9 +110,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             'THE DIGITAL ATELIER',
                             style: theme.textTheme.labelSmall?.copyWith(
                               letterSpacing: 3.2,
-                              color: context.nightInk(
-                                const Color(0xFF758284),
-                              ),
+                              color: context.nightInk(const Color(0xFF758284)),
                             ),
                           ),
                           const SizedBox(height: 28),

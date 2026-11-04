@@ -9,6 +9,7 @@ class ClosetItemPreview {
     required this.title,
     required this.subtitle,
     required this.createdAt,
+    this.styleTags = const [],
   });
 
   final String id;
@@ -20,4 +21,5 @@ class ClosetItemPreview {
   final String title;
   final String subtitle;
   final DateTime? createdAt;
+  final List<String> styleTags;
 }

@@ -52,20 +52,12 @@ extension StylexColors on BuildContext {
       colors.map(nightSurface).toList();
 }
 
-/// Reduce glare from white photo backgrounds without changing stored images.
+/// Keep photo colors unchanged in both themes.
 class NightImage extends StatelessWidget {
   const NightImage({required this.child, super.key});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => context.isDark
-      ? ColorFiltered(
-          colorFilter: const ColorFilter.mode(
-            Color(0xFFA6A6A6),
-            BlendMode.modulate,
-          ),
-          child: child,
-        )
-      : child;
+  Widget build(BuildContext context) => child;
 }

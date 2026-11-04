@@ -8,6 +8,7 @@ class ClosetAnalysisResult {
     required this.confidence,
     required this.provider,
     required this.model,
+    this.styleTags = const [],
   });
 
   final String category;
@@ -18,6 +19,7 @@ class ClosetAnalysisResult {
   final double confidence;
   final String provider;
   final String model;
+  final List<String> styleTags;
 
   ClosetAnalysisResult copyWith({
     String? category,
@@ -25,6 +27,7 @@ class ClosetAnalysisResult {
     String? primaryColor,
     String? material,
     List<String>? tags,
+    List<String>? styleTags,
     double? confidence,
     String? provider,
     String? model,
@@ -35,6 +38,7 @@ class ClosetAnalysisResult {
       primaryColor: primaryColor ?? this.primaryColor,
       material: material ?? this.material,
       tags: tags ?? this.tags,
+      styleTags: styleTags ?? this.styleTags,
       confidence: confidence ?? this.confidence,
       provider: provider ?? this.provider,
       model: model ?? this.model,
@@ -48,6 +52,7 @@ class ClosetAnalysisResult {
       'primary_color': primaryColor,
       'material': material,
       'tags': tags,
+      'style_tags': styleTags,
       'confidence': confidence,
       'provider': provider,
       'model': model,

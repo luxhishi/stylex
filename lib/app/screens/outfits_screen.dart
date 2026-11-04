@@ -861,9 +861,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                             isFavorite ? 'Favorite Look' : 'Saved Look Details',
                             style: theme.textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w800,
-                              color: context.nightInk(
-                                const Color(0xFF203032),
-                              ),
+                              color: context.nightInk(const Color(0xFF203032)),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -1169,9 +1167,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                         fontWeight: FontWeight.w800,
                         height: 0.96,
                         letterSpacing: -1.6,
-                        color: context.nightInk(
-                          theme.colorScheme.onSurface,
-                        ),
+                        color: context.nightInk(theme.colorScheme.onSurface),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1308,9 +1304,7 @@ class _OutfitsScreenState extends State<OutfitsScreen> {
                               padding: EdgeInsets.symmetric(vertical: 40),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  color: context.nightInk(
-                                    Color(0xFF0A7A76),
-                                  ),
+                                  color: context.nightInk(Color(0xFF0A7A76)),
                                 ),
                               ),
                             )
